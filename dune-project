@@ -7,9 +7,9 @@
 (source
  (github username/reponame))
 
-(authors "Author Name <author@example.com>")
+(authors "Vladimir Tsichevski <tsichevski@gmail.com>")
 
-(maintainers "Maintainer Name <maintainer@example.com>")
+(maintainers "Vladimir Tsichevski <tsichevski@gmail.com>")
 
 (license LICENSE)
 
@@ -17,10 +17,10 @@
 
 (package
  (name ocaml-books)
- (synopsis "A short synopsis")
- (description "A longer description")
+ (synopsis "Home Book Library Management Project")
+ (description "Manage Personal Book Repository in FB2 Format")
  (depends ocaml)
  (tags
-  ("add topics" "to describe" your project)))
+  ("ocaml" "books")))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
