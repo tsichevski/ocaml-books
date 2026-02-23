@@ -6,79 +6,114 @@ Home Book Library Management Project
    :depth: 2
    :local:
 
+
+Overview
+--------
+
+A lightweight OCaml tool for organizing a personal collection of FB2 e-books.
+
+Current scope (narrowed minimal viable implementation):
+
+- Import books from ZIP archives containing FB2 files
+- Extract individual FB2 files to a working directory
+- Parse basic metadata from FB2: book title and author name(s)
+- Group books by author (in-memory for now)
+- Organize files by moving them into subdirectories named after authors
+
+Future / optional directions (not yet implemented):
+
+- Persistent index (using `index` library or SQLite)
+- Navigation tool / CLI to browse by author
+- Handling legacy Russian encodings (currently assumes UTF-8)
+- Zipping processed originals
+- Better filename sanitization & collision handling
+- Support for multiple authors per book, series info, etc.
+
+
 Programming Language
 --------------------
 
-OCaml
+OCaml 5.x
+
 
 Location
 --------
 
-GitHub
+https://github.com/tsichevski/ocaml-books
 
-Goals
------
 
-- Import ZIPed library archives
-- Partially parse books in FB2 format: extract title and author information. Convert legacy Russian character code sets to unicode
-- Group books by author
-- Make books accessible by author, either:
-  
-  - Put files into the sub-directories named by authors
-  - Create an index file and a tool, which navigates library by author
+Current Libraries Used
+----------------------
 
-Challenges and Solutions
-------------------------
+Only minimal, lightweight dependencies are used:
 
-Dealing with Unicode in OCaml
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++--------------------+----------------------------------------+----------------------------------------------------+
+| Package            | Purpose                                | Why chosen                                         |
++====================+========================================+====================================================+
+| camlzip / zip      | Read/extract ZIP archives              | Standard, reliable, small footprint                |
++--------------------+----------------------------------------+----------------------------------------------------+
+| xml-light          | Parse FB2 XML for title & author       | Extremely lightweight, no extra deps, sufficient   |
++--------------------+----------------------------------------+----------------------------------------------------+
+| unix (stdlib)      | File system operations (mkdir, rename) | No extra dependency needed                         |
++--------------------+----------------------------------------+----------------------------------------------------+
 
-OCaml's standard library has limited Unicode support. The most commonly used library for proper Unicode handling (including UTF-8 strings and conversion from legacy encodings) is **Camomile**.
+No heavy dependencies (camomile, yojson, cmdliner, index, etc.) are used yet.
 
-Alternative modern choices include:
+Dune build system is used for project structure.
 
-- **Uutf** + **Uucp** + **Uunf** (for UTF decoding/encoding, character properties and normalization)
-- **uucd** / **uuseg** ecosystem packages
 
-For converting legacy Russian encodings (CP1251 / windows-1251, KOI8-R, ISO-8859-5, etc.) to Unicode/UTF-8, **Camomile** provides the most straightforward recoding facilities.
+Project Structure (current)
+---------------------------
 
-Finding an Appropriate Index Format
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+::
 
-Recommended options (persistent / on-disk indices):
+  ocaml-books/
+  ├── bin/
+  │   ├── dune
+  │   └── main.ml               # entry point (currently minimal/test)
+  ├── lib/
+  │   ├── dune
+  │   ├── fs.ml                 # mkdir_p helper
+  │   ├── unzip.ml              # ZIP extraction utilities
+  │   └── fb2_parse.ml          # FB2 title/author extraction
+  ├── dune-project              # (may be missing – add later)
+  ├── .gitignore
+  └── README.rst                # this file
 
-1. **index** library (opam package: index)
-   
-   - Designed exactly for persistent key-value indices in OCaml
-   - Supports different backends (pack, layered, etc.)
-   - Good performance for this kind of use-case
 
-2. **irmin** (very powerful, git-like versioned store)
-   
-   - Overkill for simple author → books mapping, but excellent if you later want versioning, branching, or replication
+How to Build & Run (current)
+----------------------------
 
-3. **sqlite3** + **caqti** / **sqlite3-ocaml**
-   
-   - Very simple and widely understood
-   - Easy to query with SQL
+::
 
-4. Plain text / JSON / S-expressions + in-memory cache
-   
-   - Simplest, but scales poorly and requires re-parsing on every start
+   # In project root
+   dune build bin/main.exe
 
-For most book library use-cases **index** or **sqlite3** are the best balance of simplicity and performance.
+   # Run (example – adjust paths)
+   ./_build/default/bin/main.exe
 
-Implementation Overview
------------------------
 
-Required Libraries (OPAM packages)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Current Limitations & Next Steps
+--------------------------------
 
-- camlzip                — reading ZIP archives
-- xml-light or ezxmlm    — lightweight XML parsing for FB2
-- camomile               — Unicode support & legacy encoding conversion
-- index                  — persistent on-disk index (recommended)
-- or: sqlite3            — if you prefer SQL
-- cmdliner or argparse   — for command-line interface (optional)
-- fmt / logs             — better logging and output
+- Assumes all FB2 files are valid UTF-8 (no legacy encoding conversion yet)
+- Author name is taken from the first <author> block only
+- Files are extracted but not yet moved/grouped by author
+- No command-line interface (only hardcoded test calls in main.ml)
+- No persistent index or navigation tool
 
+Planned next steps (in rough priority order):
+
+1. Implement basic grouping by author (Hashtbl or Map)
+2. Add file moving to author-named subdirectories
+3. Add simple CLI (using Arg or cmdliner)
+4. Add configuration (JSON or simple file)
+5. Re-evaluate need for camomile (encoding) and index (persistent storage)
+
+Contributions & feedback welcome!
+
+
+License
+-------
+
+MIT
