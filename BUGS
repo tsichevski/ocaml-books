@@ -1,0 +1,5 @@
+2026-02-24  Vladimir Tsichevski  <Vladimir Tsichevski <vvt@goldencode.com>>
+
+	* calmzip failed on fb2-799407-801214.zip: Unknown ZIP version
+	The file is correc
+
