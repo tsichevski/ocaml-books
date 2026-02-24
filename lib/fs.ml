@@ -1,3 +1,4 @@
+(* #require "unix";; *)
 (** [mkdir_p ?perm path] creates the directory [path] and all missing parent
     directories (like [mkdir -p]). Safe if the path already exists. *)
 let mkdir_p ?(perm = 0o755) path =
@@ -19,3 +20,17 @@ let mkdir_p ?(perm = 0o755) path =
                       (Unix.error_message e) f arg)
   in
   create path
+
+let sanitize_filename s =
+  String.map (fun c ->
+    match c with
+    | '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'
+    | '\000' .. '\031' -> '_'
+    | _ -> c
+  ) s
+  |> String.trim
+  |> fun s -> if s = "" then "unnamed" else s
+
+let is_regular_file path =
+  Sys.file_exists path &&
+    not (Sys.is_directory path)

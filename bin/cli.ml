@@ -2,6 +2,7 @@
 
 open Cmdliner
 open Ocaml_books.Config
+open Ocaml_books.Organize
 
 (* ────────────────────────────────────────────── *)
 (* Common options ───────────────────────────────── *)
@@ -52,9 +53,9 @@ let init_cmd =
     Cmd.info "init"
       ~doc
       ~man
-      ~exits:Cmd.Exit.defaults          (* ← modern replacement *)
+      ~exits:Cmd.Exit.defaults
   in
-  Cmd.v info Term.(const (fun (v, c, d) ->
+  Cmd.make info Term.(const (fun (v, c, d) ->
     if d then begin
       Printf.printf "[dry-run] Would create default config\n";
       0
@@ -107,23 +108,94 @@ let import_cmd =
 
 
 (* ────────────────────────────────────────────── *)
-(* organize command – placeholder *)
+(* organize command *)
 
 let organize_cmd =
-  let doc = "Parse books and organize them into author directories" in
+  let doc = "Parse FB2 files and move them into author-named subdirectories" in
+  let man = [
+    `S Manpage.s_description;
+    `P "Scans library_dir for FB2 files,";
+    `P "parses author/title, and moves files to target_dir/author_name/.";
+    `P "Uses sanitized filenames: author - title.fb2";
+  ] in
   let info =
     Cmd.info "organize"
       ~doc
+      ~man
       ~exits:Cmd.Exit.defaults
   in
-  Cmd.v info Term.(const (fun (v, c, d) ->
-    let cfg = load_config v c in
-    Printf.printf "Organize (dry-run=%b, verbose=%b) from %s to %s\n"
-      d v cfg.library_dir cfg.target_dir;
-    (* TODO: real logic – scan, parse, group, move *)
-    0
-  ) $ common_opts)
+  Cmd.v info Term.(const (fun (verbose, custom_path, dry) ->
+    let cfg = load_config verbose custom_path in
 
+    if verbose then begin
+      Printf.printf "Organize mode\n";
+      Printf.printf "  Source: %s\n" cfg.library_dir;
+      Printf.printf "  Target: %s\n" cfg.target_dir;
+      if dry then Printf.printf "  [dry-run] No files will be moved\n";
+    end;
+
+    try
+      if not (Sys.is_directory cfg.library_dir) then
+        failwith (Printf.sprintf "Not a directory: %s" cfg.library_dir);
+
+      let files =
+        Sys.readdir cfg.library_dir
+        |> Array.to_list
+        |> List.map (Filename.concat cfg.library_dir)
+        |> List.filter (fun p ->
+             Ocaml_books.Fs.is_regular_file p &&
+             Filename.check_suffix p ".fb2"  (* basic filter – improve later *)
+          )
+      in
+
+      if verbose then
+        Printf.printf "Found %d candidate FB2 files\n" (List.length files);
+
+      let books = ref [] in
+      let parse_failures = ref 0 in
+
+      List.iter (fun path ->
+        try
+          let author, title, _ = Ocaml_books.Fb2_parse.parse_title_author path in
+          books := { author; title; path } :: !books;
+          if verbose then
+            Printf.printf "Parsed: %s → %s\n" author title
+        with e ->
+          incr parse_failures;
+          if verbose then
+            Printf.eprintf "Parse failed: %s → %s\n" path (Printexc.to_string e)
+      ) files;
+
+      if !parse_failures > 0 then
+        Printf.eprintf "Warning: %d files failed to parse\n" !parse_failures;
+
+      let tbl = Ocaml_books.Organize.group_by_author !books in
+
+      AuthorTbl.iter (fun _key books ->
+        List.iter (fun b ->
+          let author_dir = Filename.concat cfg.target_dir (Ocaml_books.Fs.sanitize_filename b.author) in
+          let dest_name = Printf.sprintf "%s - %s.fb2"
+                            (Ocaml_books.Fs.sanitize_filename b.author)
+                            (Ocaml_books.Fs.sanitize_filename b.title) in
+          let dest_path = Filename.concat author_dir dest_name in
+
+          if dry then
+            Printf.printf "[dry-run] Would move %s → %s\n" b.path dest_path
+          else begin
+            if verbose then Printf.printf "Moving %s → %s\n" b.path dest_path;
+            Ocaml_books.Fs.mkdir_p author_dir;
+            Sys.rename b.path dest_path
+          end
+        ) books
+      ) tbl;
+
+      Printf.printf "Organized %d books\n" (List.length !books);
+      0
+
+    with e ->
+      Printf.eprintf "Organize failed: %s\n" (Printexc.to_string e);
+      1
+  ) $ common_opts)
 
 (* ────────────────────────────────────────────── *)
 (* Main program *)
