@@ -1,121 +1,75 @@
 (* Unzip file support *)
 (*
   utop:
-#require "zip";;
+  #require "zipc";;
+  #require "unix";;
  *)
-open Zip
-open Fs
+open Zipc
+open Unix
 
-(** {1 ZIP utilities}
+exception Zipc_error of string
 
-    Helpers for safe and exception-safe handling of ZIP archives using the camlzip library.
-*)
+let read_file_binary path =
+  try
+    let ic = open_in_bin path in
+    Fun.protect ~finally:(fun () -> close_in_noerr ic)
+      (fun () -> Ok (really_input_string ic (in_channel_length ic)))
+  with Sys_error msg ->
+    Error msg
 
-(** [with_zip_in zip_path f] opens the ZIP archive located at [zip_path],
-    passes the resulting [Zip.in_file] handle to the user-provided function [f],
-    and guarantees that the archive is properly closed when [f] terminates —
-    whether normally or by raising an exception.
+let extract_fb2_files zip_path target_dir : (string list, string) result =
+  let size = (Unix.stat zip_path).Unix.st_size in
 
-    This function follows the RAII (Resource Acquisition Is Initialization) pattern
-    using [Fun.protect], making it the preferred way to work with ZIP files in this project.
+  if Int.to_float size > 4_500_000_000.0 then begin
+      (* Large archive → fallback to external 7z *)
+      Printf.printf "Large archive (%.1f GB) detected - using external 7z\n"
+        (Int.to_float size /. 1e9);
+      let cmd =
+        Printf.sprintf "7z x %s -o%s -y >/dev/null 2>&1"
+          (Filename.quote zip_path) (Filename.quote target_dir)
+      in
+      if Sys.command cmd = 0 then
+        Ok []   (* success - caller can scan target_dir for .fb2 files *)
+      else
+        Error "External 7z extraction failed"
+    end else begin
+      (* Normal size → use zipc in pure OCaml *)
+      let ( let* ) = Result.bind in
 
-    @param zip_path Absolute or relative path to a valid ZIP file
-    @param f A function that takes an opened [Zip.in_file] and returns a value of type ['a]
-    @return The result of applying [f] to the opened ZIP handle
-    @raise Sys_error if the file cannot be opened (e.g. does not exist, permission denied)
-    @raise Zip.Error if the file is not a valid ZIP archive or is corrupted
+      let* content = read_file_binary zip_path in
+      let* zip = Zipc.of_binary_string content in
 
-    Example — list all entries in an archive:
-    {[
-      let entries =
-        with_zip_in "library.zip" @@ fun zip ->
-        Zip.entries zip
-    ]}
+      let fb2_paths_rev =
+        Zipc.fold (fun member acc ->
+            match Zipc.Member.kind member with
+            | Zipc.Member.Dir -> acc
+            | Zipc.Member.File file ->
+               let name = Zipc.Member.path member in
+               if Filename.check_suffix name ".fb2" then
+                 match Zipc.File.to_binary_string file with
+                 | Ok data ->
+                    let basename = Filename.basename name in
+                    let out_path = Filename.concat target_dir basename in
 
-    Example — process only FB2 files (used internally by [extract_fb2_files]):
-    {[
-      with_zip_in archive_path @@ fun zip ->
-      List.iter (fun entry ->
-        if Filename.check_suffix entry.filename ".fb2" then
-          (* process entry *)
-      ) (Zip.entries zip)
-    ]}
-*)
-let with_zip_in zip_path f =
-  let zip = ref None in
-  Fun.protect
-    ~finally:(fun () ->
-      match !zip with
-      | Some z -> Zip.close_in z
-      | None   -> ())
-    (fun () ->
-      let z = Zip.open_in zip_path in
-      zip := Some z;
-      f z)
-;;
+                    let dir = Filename.dirname out_path in
+                    if not (Sys.file_exists dir) then Fs.mkdir_p dir;
 
-(** [extract_fb2_files zip_path target_dir] extracts all files with the
-    extension [.fb2] from the ZIP archive at [zip_path] into [target_dir].
+                    let oc = open_out_bin out_path in
+                    output_string oc data;
+                    close_out oc;
 
-    Requirements:
-    - The archive **must** contain at least one regular file ending with [.fb2].
-    - If no [.fb2] files are found, raises [Invalid_argument].
+                    Printf.printf "Extracted: %s\n" basename;
+                    out_path :: acc
 
-    Behaviour:
-    - Only regular files (not directories) ending in [.fb2] are processed.
-    - Parent directories are created automatically using [Fs.mkdir_p].
-    - Existing files in [target_dir] will be overwritten.
-    - Extraction progress is printed to stdout; errors during single-file
-      extraction are printed to stderr but do not stop the whole process.
+                 | Error e ->
+                    Printf.eprintf "Failed to extract %s: %s\n"
+                      name e;
+                    acc
+                    else
+                      acc
+          ) zip []
+        |> List.rev
+      in
 
-    @param zip_path Path to the source ZIP archive
-    @param target_dir Directory where extracted .fb2 files will be placed
-    @return List of full paths to successfully extracted .fb2 files
-            (in the order they appeared in the archive)
-
-    @raise Invalid_argument if the archive contains no [.fb2] files
-    @raise Sys_error / Unix.Unix_error on file system errors preventing extraction
-    @raise Zip.Error on ZIP format or reading errors
-
-    Example:
-    {[
-      let paths = extract_fb2_files "books.zip" "/tmp/raw-fb2" in
-      List.iter (Printf.printf "Extracted: %s\n") paths;
-      Printf.printf "Total: %d files\n" (List.length paths)
-    ]}
-*)
-let extract_fb2_files zip_path target_dir =
-  with_zip_in zip_path @@ fun zip ->
-
-  let fb2_entries =
-    Zip.entries zip
-    |> List.filter (fun entry ->
-         not entry.is_directory && Filename.check_suffix entry.filename ".fb2")
-  in
-
-  if fb2_entries = [] then
-    raise (Invalid_argument
-             (Printf.sprintf "No .fb2 files found in archive: %s" zip_path));
-
-  (* Folding function: acc is list of successful paths, entry is current Zip.entry *)
-  let extract_one acc entry =
-    try
-      let basename = Filename.basename entry.filename in
-      let out_path = Filename.concat target_dir basename in
-
-      let dir = Filename.dirname out_path in
-      if not (Sys.file_exists dir) then Fs.mkdir_p dir;
-
-      Zip.copy_entry_to_file zip entry out_path;
-
-      Printf.printf "Extracted: %s\n" basename;
-
-      out_path :: acc          (* prepend → we reverse later *)
-    with e ->
-      Printf.eprintf "Error extracting %s: %s\n"
-        entry.filename (Printexc.to_string e);
-      acc                      (* keep going, don't add failed file *)
-  in
-
-  List.fold_left extract_one [] fb2_entries
-  |> List.rev
+      Ok fb2_paths_rev
+    end

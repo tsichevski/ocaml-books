@@ -1,4 +1,4 @@
 (executable
  (public_name ocaml-books)
  (name cli)
- (libraries ocaml_books zip cmdliner))
+ (libraries ocaml_books zipc cmdliner))

@@ -3,6 +3,7 @@
 open Cmdliner
 open Ocaml_books.Config
 open Ocaml_books.Organize
+open Ocaml_books.Unzip
 
 (* ────────────────────────────────────────────── *)
 (* Common options ───────────────────────────────── *)
@@ -96,14 +97,15 @@ let import_cmd =
       Printf.printf "[dry-run] Would extract from %s to %s\n" path cfg.library_dir;
       0
     end else
-      try
-        if v then Printf.printf "Extracting from %s to %s\n" path cfg.library_dir;
-        let extracted = Ocaml_books.Unzip.extract_fb2_files path cfg.library_dir in
-        if v then Printf.printf "Extracted %d FB2 files\n" (List.length extracted);
-        0
-      with e ->
-        Printf.eprintf "Extraction failed: %s\n" (Printexc.to_string e);
-        1
+      match Ocaml_books.Unzip.extract_fb2_files path cfg.library_dir with
+      | Ok extracted ->
+         if v then
+           Printf.printf "Extracted %d FB2 files\n" (List.length extracted);
+         0
+
+      | Error msg ->
+         Printf.eprintf "Extraction failed: %s\n" msg;
+         1
   ) $ common_opts $ zip_path_arg)
 
 
