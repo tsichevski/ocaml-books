@@ -1,0 +1,5 @@
+(executable
+ (name run_tests)
+ (libraries alcotest base core ocaml_books)
+ (preprocess (pps ppx_deriving_yojson))
+ )
