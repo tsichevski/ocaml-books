@@ -187,7 +187,7 @@ let koi8r_to_uchar_array_rfc1489 : Uchar.t array =
     Uchar.of_scalar_exn 0x042D; Uchar.of_scalar_exn 0x0429; Uchar.of_scalar_exn 0x0427; Uchar.of_scalar_exn 0x042A;
   |]
 
-type t = { table: Uchar.t array option; input: In_channel.t; mutable last : char list }
+type t = { table: Uchar.t array option; input: In_channel.t; mutable last : int list }
 
 let create table input = { input; table; last = [] }
 
@@ -197,9 +197,9 @@ let create_koi8r = create (Some koi8r_to_uchar_array_rfc1489)
 
 let create_norecode = create None
 
-let input_char t : char option =
+let input_byte t : int option =
   match t.table with
-  | None -> In_channel.input_char t.input
+  | None -> In_channel.input_byte t.input
   | Some table ->
     let rec loop () =
       match t.last with
@@ -211,12 +211,12 @@ let input_char t : char option =
         | None -> None
         | Some sc ->
           if sc < 128 then
-            Char.of_int sc
+            Some sc
           else
             begin
               let uchar = table.(sc - 0x80) in
               let s = Uchar.Utf8.to_string uchar in
-              t.last <- String.to_list s;
+              t.last <- String.to_list s |> List.map ~f:Char.to_int;
               loop ()
             end
     in

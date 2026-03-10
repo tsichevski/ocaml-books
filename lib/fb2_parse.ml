@@ -113,9 +113,9 @@ let parse_title_author path =
          | _ -> failwith ("Unsupported encoding: " ^ enc)
        in
        let fn () =
-         match Recoding_channel.input_char rindex with
+         match Recoding_channel.input_byte rindex with
          | None -> -1
-         | Some c -> Char.to_int c
+         | Some c -> c
        in  
        let input = Xmlm.make_input (`Fun fn) in
        if locate input ["title-info"; "description"; "FictionBook"] then

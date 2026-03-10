@@ -11,7 +11,7 @@
    {v
      (* CP1251 example *)
      let decoder = create_cp1251 stdin in
-     while let Some c = input_char decoder do
+     while let Some c = input_byte decoder do
        Stdlib.print_char c
      done;
 
@@ -49,9 +49,9 @@ val create_cp1251 : In_channel.t -> t
     (using the standard RFC 1489 mapping). *)
 val create_koi8r : In_channel.t -> t
 
-(** [input_char t] reads and returns the next byte of the UTF-8 encoded stream.
+(** [input_byte t] reads and returns the next byte of the UTF-8 encoded stream.
 
     @return [Some c] — next UTF-8 byte
     @return [None] — end of input reached
 *)
-val input_char: t -> char option
+val input_byte: t -> int option
