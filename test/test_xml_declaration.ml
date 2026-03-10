@@ -1,9 +1,7 @@
 open Alcotest
 open Ocaml_books.Xml_declaration
 
-    
 let test_extract_encoding () =
-  Printf.printf "Hello";
   let enc = Ocaml_books.Xml_declaration.extract_encoding 
     {|<?xml version="1.0" encoding="windows-1251"?>|}
   in
