@@ -2,10 +2,9 @@
 
 open Cmdliner
 open Ocaml_books.Config
-open Ocaml_books.Organize
 open Ocaml_books.Unzip
+open Ocaml_books.Book
 
-(* ────────────────────────────────────────────── *)
 (* Common options ───────────────────────────────── *)
 
 let verbose =
@@ -25,7 +24,6 @@ let common_opts =
         $ verbose $ config_opt $ dry_run)
 
 
-(* ────────────────────────────────────────────── *)
 (* Helper: load config with fallback & verbose log *)
 
 let load_config verbose custom_path =
@@ -41,7 +39,6 @@ let load_config verbose custom_path =
       Ocaml_books.Config.load ()
 
 
-(* ────────────────────────────────────────────── *)
 (* init command *)
 
 let init_cmd =
@@ -74,7 +71,6 @@ let init_cmd =
   ) $ common_opts)
 
 
-(* ────────────────────────────────────────────── *)
 (* import command *)
 
 let zip_path_arg =
@@ -112,7 +108,6 @@ let import_cmd =
   ) $ common_opts $ zip_path_arg)
 
 
-(* ────────────────────────────────────────────── *)
 (* organize command *)
 
 let organize_cmd =
@@ -156,36 +151,33 @@ let organize_cmd =
       if verbose then
         Printf.printf "Found %d candidate FB2 files\n%!" (List.length files);
 
-      let books = 
-        List.fold_left
-          (fun accu path ->
-             if verbose then Printf.printf "Parsing: %s\n%!" path;          
-             let author, title = Ocaml_books.Fb2_parse.parse_title_author path in
-             let author = Option.value ~default:"UnknownAuthor" author
-             and title = Option.value ~default:"UnknownTitle" title in
-             { author; title; path } :: accu;)
-          []
-          files in
-
-      let tbl = Ocaml_books.Organize.group_by_author books in
-
-      AuthorTbl.iter (fun _key books ->
-        List.iter (fun b ->
-          let author_dir = Filename.concat cfg.target_dir (Ocaml_books.Fs.sanitize_filename b.author) in
-          let dest_name = Printf.sprintf "%s.fb2" (Ocaml_books.Fs.sanitize_filename b.title) in
+      List.iter
+        (fun path ->
+          if verbose then Printf.printf "Parsing: %s\n%!" path;          
+          let book = Ocaml_books.Fb2_parse.parse_title_author path in
+          let author =
+            match book.authors with
+            | [] -> "UnknownAuthor"
+            | { first_name; middle_name; last_name; _} :: _ ->
+              match List.filter_map Fun.id [first_name; middle_name; last_name] with
+              | [] -> "UnknownAuthor"
+              | parts -> String.concat " " parts
+          in
+          let title = Option.value ~default:"UnknownTitle" book.title in
+          let author_dir = Filename.concat cfg.target_dir (Ocaml_books.Fs.sanitize_filename author) in
+          let dest_name = Printf.sprintf "%s.fb2" (Ocaml_books.Fs.sanitize_filename title) in
           let dest_path = Filename.concat author_dir dest_name in
-
+          
           if dry then
-            Printf.printf "[dry-run] Would move %s → %s\n%!" b.path dest_path
+            Printf.printf "[dry-run] Would move %s → %s\n%!" path dest_path
           else begin
-            if verbose then Printf.printf "Moving %s → %s\n%!" b.path dest_path;
+            if verbose then Printf.printf "Moving %s → %s\n%!" path dest_path;
             Ocaml_books.Fs.mkdir_p author_dir;
-            Sys.rename b.path dest_path
+            Sys.rename path dest_path
           end
-        ) books
-      ) tbl;
-
-      Printf.printf "Organized %d books\n%!" (List.length books);
+        ) files;
+        
+      Printf.printf "Organized %d books\n%!" (List.length files);
       0
 
     with e ->
@@ -193,7 +185,6 @@ let organize_cmd =
       1
   ) $ common_opts)
 
-(* ────────────────────────────────────────────── *)
 (* Main program *)
 
 let main () =

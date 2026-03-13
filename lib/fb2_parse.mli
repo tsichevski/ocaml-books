@@ -1,36 +1,31 @@
-(* Streaming (SAX-style) parsing of FB2 metadata using xmlm.
-   Reads the file incrementally and stops as soon as the <title-info> element
-   is fully processed.
+(** FB2 metadata extraction (streaming / SAX-style with xmlm).
 
-   Current assumptions:
-   - All input files are valid UTF-8 (no encoding detection or conversion)
-   - Only the first <title-info> block is used
-   - Only one <author> block is processed (first one found)
+    This module parses FB2 files efficiently without loading the entire file into memory.
+    It stops parsing as soon as the first [<title-info>] element is fully processed.
 
-   Dependencies: xmlm (lightweight streaming XML parser)
+    Assumptions (current implementation):
+    - All input files are valid UTF-8 (no encoding detection or conversion)
+    - Only the first [<title-info>] block is processed
+    - Authors are collected from both [<title-info>] and [<document-info>] sections
+    - Only one author block per section is collected (first occurrence)
 
-   Output: (author_name, book_title, original_path) triple
-   Raises Fb2_parse_error on missing required tags or malformed XML *)
+    Dependencies: xmlm (streaming XML parser), Recoding_channel (internal byte recoder)
 
-exception Fb2_parse_error of string
+    Raises Fb2_parse_error on parse failures (missing required tags, malformed XML, etc.)
+*)
 
-type title_info = {
-  title       : string option;
-  first_name  : string option;
-  middle_name : string option;
-  last_name   : string option;
-  lang        : string option;
-  genre       : string option;
-}
-  
-(** [parse_title_author_stream path] parses the FB2 file at [path] using xmlm.
-    Collects author name (first + middle + last name) and book title from the
-    first <title-info> block.
+open Book
 
-    Stops reading as soon as </title-info> is encountered — very efficient for
-    large FB2 files with big <body> sections.
+(** [parse_title_author path] parses the FB2 file at [path] using streaming XML parsing.
+
+    - Reads the file incrementally (does not load full content into memory)
+    - Automatically detects encoding from XML declaration and recodes to UTF-8
+    - Collects title and all authors from the first [<title-info>] or [<document-info>]
+    - Stops parsing after the closing </title-info> or </document-info> tag
 
     @param path Path to the FB2 file
-    @return (author, title, path)
-    @raise Fb2_parse_error if <title-info>, <book-title> or author parts are missing *)
-val parse_title_author : string -> string option * string option
+    @return [title_info] record with extracted metadata
+    @raise Fb2_parse_error if required elements are missing or XML is malformed
+    @raise Failure if the declared encoding is unsupported
+*)
+val parse_title_author : string -> title_info

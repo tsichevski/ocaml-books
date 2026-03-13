@@ -5,9 +5,7 @@ Handling Non-Unicode FB2 Encodings
 Problem
 -------
 
-The FB2 parser uses ``xmlm`` for XML parsing, which natively supports only Unicode encodings (UTF-8, UTF-16, ISO-8859-1). However, many legacy FB2 files—particularly Russian publications—declare non-Unicode encodings such as ``windows-1251`` (CP1251) in their XML declarations:
-
-.. code-block:: xml
+The FB2 parser uses ``xmlm`` for XML parsing, which natively supports only Unicode encodings (UTF-8, UTF-16, ISO-8859-1). However, many legacy FB2 files—particularly Russian publications—declare non-Unicode encodings such as ``windows-1251`` (CP1251) in their XML declarations::
 
    <?xml version="1.0" encoding="windows-1251"?>
    <FictionBook>...</FictionBook>
