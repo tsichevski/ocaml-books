@@ -17,6 +17,7 @@ type t = {
   target_dir      : string;             (* Destination directory for organized books *)
   dry_run         : bool;               (* If true: simulate actions without changes *)
   verbose         : bool;               (* If true: print detailed progress info *)
+  max_component_len: int;               (* Maximum length of one filename component or 0 (default) for no limit *)
 } [@@deriving yojson { strict = false }]
 
 (** [default ()] returns the hardcoded default configuration values. *)
@@ -25,6 +26,7 @@ let default () : t = {
   target_dir       = Filename.concat (Sys.getenv "HOME") "books/organized";
   dry_run          = false;
   verbose          = true;
+  max_component_len = 0;
 }
 
 (** [config_file_locations ()] returns the list of standard config file paths to check. *)

@@ -34,13 +34,13 @@ let mkdir_p ?(perm = 0o755) path =
   in
   create path
 
-(* [sanitize_filename s] creates a safe filename by replacing forbidden characters
-    with '_', trimming whitespace, and ensuring non-empty result (defaults to unnamed).
+(** [sanitize_filename ?max_len s] creates a safe filename by replacing forbidden characters
+    with '_', trimming whitespace, and truncating to [max_len] bytes (if given).
 
-    Forbidden characters: / \ : * ? < > |, double-quote and control chars (0x00-0x1F).
-
-    Used to prevent invalid filenames on various filesystems. *)
-let sanitize_filename s =
+    @param max_len Optional maximum byte length of the result (excluding extension).
+                   If exceeded, appends "…". Default: no limit.
+    @return sanitized string (never empty) *)
+let sanitize_filename s max_len =
   String.map (fun c ->
     match c with
     | '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'
@@ -48,7 +48,12 @@ let sanitize_filename s =
     | _ -> c
   ) s
   |> String.trim
-  |> fun s -> if s = "" then "unnamed" else s
+  |> fun s ->
+     let s = if String.length s > max_len then
+               String.sub s 0 max_len ^ "…"
+             else s
+     in
+     if s = "" then "unnamed" else s
 
 (** [is_regular_file path] returns true if [path] exists and is a regular file
     (not directory, symlink, device, etc.). Returns false on non-existent paths or errors. *)

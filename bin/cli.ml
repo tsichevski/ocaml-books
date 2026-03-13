@@ -19,10 +19,15 @@ let dry_run =
   let doc = "Do not perform any real file operations (simulation mode)" in
   Arg.(value & flag & info ["dry-run"] ~doc)
 
-let common_opts =
-  Term.(const (fun v c d -> (v, c, d))
-        $ verbose $ config_opt $ dry_run)
+(* bin/cli.ml — fragment *)
 
+let max_component_len =
+  let doc = "Maximum allowed length of any filename or directory component (in bytes). 0 = no limit (default)." in
+  Arg.(value & opt int 0 & info ["m"; "max-component-len"] ~docv:"N" ~doc)
+
+let common_opts =
+  Term.(const (fun v c d m -> (v, c, d, m))
+        $ verbose $ config_opt $ dry_run $ max_component_len)
 
 (* Helper: load config with fallback & verbose log *)
 
@@ -53,7 +58,7 @@ let init_cmd =
       ~man
       ~exits:Cmd.Exit.defaults
   in
-  Cmd.v info Term.(const (fun (v, c, d) ->
+  Cmd.v info Term.(const (fun (v, c, d, m) ->
     if d then begin
       Printf.printf "[dry-run] Would create default config\n%!";
       0
@@ -89,7 +94,7 @@ let import_cmd =
       ~man
       ~exits:Cmd.Exit.defaults
   in
-  Cmd.v info Term.(const (fun (v, c, d) path ->
+  Cmd.v info Term.(const (fun (v, c, d, m) path ->
     let cfg = load_config v c in
     let verbose = v || cfg.verbose in
     if d then begin
@@ -124,11 +129,12 @@ let organize_cmd =
       ~man
       ~exits:Cmd.Exit.defaults
   in
-  Cmd.v info Term.(const (fun (v, custom_path, dry) ->
+  Cmd.v info Term.(const (fun (v, custom_path, dry, max_component_len) ->
     let cfg = load_config v custom_path in
     let verbose = v || cfg.verbose in
+    let max_component_len = if max_component_len = 0 then cfg.max_component_len else max_component_len in
     if verbose then begin
-      Printf.printf "Organize mode\n";
+      Printf.printf "Organize mode (max component length = %d bytes)\n" max_component_len;
       Printf.printf "  Source: %s\n" cfg.library_dir;
       Printf.printf "  Target: %s\n%!" cfg.target_dir;
       if dry then Printf.printf "  [dry-run] No files will be moved\n%!";
@@ -164,8 +170,8 @@ let organize_cmd =
               | parts -> String.concat " " parts
           in
           let title = Option.value ~default:"UnknownTitle" book.title in
-          let author_dir = Filename.concat cfg.target_dir (Ocaml_books.Fs.sanitize_filename author) in
-          let dest_name = Printf.sprintf "%s.fb2" (Ocaml_books.Fs.sanitize_filename title) in
+          let author_dir = Filename.concat cfg.target_dir (Ocaml_books.Fs.sanitize_filename author max_component_len) in
+          let dest_name = Printf.sprintf "%s.fb2" (Ocaml_books.Fs.sanitize_filename title max_component_len) in
           let dest_path = Filename.concat author_dir dest_name in
           
           if dry then
