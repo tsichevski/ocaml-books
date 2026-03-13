@@ -4,7 +4,6 @@
    unix
    zipc
    xmlm
-   camomile
    yojson ppx_deriving_yojson.runtime
  )
  (preprocess (pps ppx_deriving_yojson))

@@ -71,87 +71,24 @@ For most book library use-cases **index** or **sqlite3** are the best balance of
 Implementation Overview
 -----------------------
 
+No Jane libraries for now
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+After some experiments I decided against using Jane libraries Base/Core despinte the excellent book ``Real World Ocaml`` is based in using these libs.
+The reasons:
+
+#. The library modules "shadows" the standard library modules, which leads to confusion:
+
+   #. I need to specify some base modules explicitly in the code
+   #. Many 3-rd party libraries are based on stdlib modules
+   #. By some reasons ocamldebug does not see Base/Core modules
+
+Probably, I'll return to using Base in the future if I see it is really worth it.
+
 Required Libraries (OPAM packages)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- camlzip                — reading ZIP archives
-- xml-light or ezxmlm    — lightweight XML parsing for FB2
-- camomile               — Unicode support & legacy encoding conversion
-- index                  — persistent on-disk index (recommended)
-- or: sqlite3            — if you prefer SQL
-- cmdliner or argparse   — for command-line interface (optional)
-- fmt / logs             — better logging and output
+- zipc     — reading ZIP archives
+- xmlm     — lightweight SAX-style XML parsing for FB2
+- cmdliner — for command-line interface
 
-Project Structure Suggestion
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-::
-
-  home-book-library/
-  ├── dune-project
-  ├── dune
-  ├── lib/
-  │   ├── import.ml           # ZIP + FB2 extraction & parsing
-  │   ├── unicode.ml          # encoding detection & conversion helpers
-  │   ├── index.ml            # author → book entries storage
-  │   └── organization.ml     # moving files or building index
-  ├── bin/
-  │   └── main.ml             # command-line tool
-  ├── opam
-  ├── README.rst
-
-
-Example Code Snippets
-~~~~~~~~~~~~~~~~~~~~~
-
-ZIP import (very simplified)
-
-::
-
-   open Zip
-
-   let import_zip path target_dir =
-     let zip = open_in path in
-     let entries = entries zip in
-     List.iter (fun e ->
-       if not e.is_directory && Filename.check_suffix e.filename ".fb2" then
-         let content = input zip e in
-         let out_path = Filename.concat target_dir e.filename in
-         let oc = open_out_bin out_path in
-         output_string oc content;
-         close_out oc
-     ) entries;
-     close_in zip
-
-FB2 partial parse + encoding conversion (using camomile)
-
-::
-
-   open CamomileLibraryDefault.Camomile
-   open Xml
-
-   let fb2_get_title_author path =
-     let raw = really_input_string (open_in_bin path) (Unix.stat path).st_size in
-     (* Very naive encoding guess — improve with uutf / xml header *)
-     let utf8 =
-       try CharEncoding.recode_string (CharEncoding.of_name "windows-1251") CharEncoding.utf8 raw
-       with _ -> raw (* fallback *)
-     in
-     let doc = parse_string utf8 in
-     let title =
-       try get_pcdata (find (tag "book-title") doc)
-       with Not_found -> "Untitled"
-     and author =
-       try
-         let a = find (tag "author") doc in
-         String.concat " " [
-           get_pcdata_opt (find (tag "first-name") a) ~default:"";
-           get_pcdata_opt (find (tag "last-name") a) ~default:""
-         ] |> String.trim
-       with Not_found -> "Unknown Author"
-     in
-     (author, title, path)
-
-.. note::
-   Real-world FB2 parsing should handle multiple authors, transliteration, empty fields, XML namespaces, etc.
-   The encoding detection should be more robust (look at <?xml encoding="..."?>, meta tags, statistical detection).
