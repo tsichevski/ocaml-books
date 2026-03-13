@@ -132,7 +132,7 @@ Next implementation steps (recommended order)
 
 2. **Implement organize subcommand**  
    - Scan ``library_dir`` for extracted .fb2 files (or freshly extracted ones)  
-   - Parse each with ``Fb2_parse.parse_title_author``  
+   - Parse each with ``Fb2_parse.parse_book_info``  
    - Group by author (Hashtbl or Map)  
    - Move/copy to ``target_dir/author_name/``
 

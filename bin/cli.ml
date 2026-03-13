@@ -161,7 +161,7 @@ let organize_cmd =
       List.iter
         (fun path ->
           if verbose then Printf.printf "Parsing: %s\n%!" path;          
-          let book = Ocaml_books.Fb2_parse.parse_title_author path in
+          let book = Ocaml_books.Fb2_parse.parse_book_info path in
           let author =
             match book.authors with
             | [] -> "UnknownAuthor"

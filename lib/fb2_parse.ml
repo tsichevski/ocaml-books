@@ -27,60 +27,6 @@ let rec parse input handle path =
 
 let locate input path = parse input (fun txt path' -> List.equal String.equal path path') []
 
-(** Parse the title-info element contents *)
-let collect_title_info input =
-  let authors = ref [] in
-  let current_first_name = ref None in
-  let current_middle_name = ref None in
-  let current_last_name = ref None in
-  let title = ref None in
-  let lang = ref None in
-  let genre = ref None in
-
-  let append_current_author () =
-    match !current_first_name, !current_middle_name, !current_last_name with
-    | None, None, None -> ()
-    | f, m, l ->
-      authors := { first_name = f; middle_name = m; last_name = l } :: !authors;
-      current_first_name := None;
-      current_middle_name := None;
-      current_last_name := None
-  in
-
-  ignore (parse input (fun txt path ->
-    match txt with
-    | None -> (* Element start *)
-      (match path with
-       | ["author"; ("title-info" | "document-info"); "description"] ->
-         append_current_author ()
-       | _ -> ());
-      false
-    | Some v ->
-      (match path with
-       | ["first-name"; "author"; ("title-info" | "document-info"); "description"] ->
-         current_first_name := Some v
-       | ["middle-name"; "author"; ("title-info" | "document-info"); "description"] ->
-         current_middle_name := Some v
-       | ["last-name"; "author"; ("title-info" | "document-info"); "description"] ->
-         current_last_name := Some v
-       | ["book-title"; "title-info"; "description"] ->
-         title := Some v
-       | ["lang"; "title-info"; "description"] ->
-         lang := Some v
-       | ["genre"; "title-info"; "description"] ->
-         genre := Some v
-       | _ -> ());
-      false
-  ) ["description"]);
-
-  append_current_author (); (* Append the last author if any *)
-
-  { title = !title;
-    authors = List.rev !authors;
-    lang = !lang;
-    genre = !genre;
-  }
-
 let parse_visit path h =
   In_channel.with_open_bin path 
     (fun ic ->
@@ -104,12 +50,62 @@ let parse_visit path h =
 let validate path =
   parse_visit path (fun input -> ignore(parse input (fun _ _ -> false)  []))
 
-let parse_title_author path =
+let parse_book_info path =
   parse_visit path
     (fun input ->
       if locate input ["description"; "FictionBook"] then
-         collect_title_info input
-       else
-         raise (Fb2_parse_error (Printf.sprintf "%s: no 'description' XML element found" path))
-    )
+        (** Parse the title-info element contents *)
+        let authors = ref [] in
+        let current_first_name = ref None in
+        let current_middle_name = ref None in
+        let current_last_name = ref None in
+        let title = ref None in
+        let lang = ref None in
+        let genre = ref None in
 
+        let append_current_author () =
+          match !current_first_name, !current_middle_name, !current_last_name with
+          | None, None, None -> ()
+          | f, m, l ->
+            authors := { first_name = f; middle_name = m; last_name = l } :: !authors;
+            current_first_name := None;
+            current_middle_name := None;
+            current_last_name := None
+        in
+
+        ignore (parse input (fun txt path ->
+          match txt with
+          | None -> (* Element start *)
+            (match path with
+            | ["author"; ("title-info" | "document-info"); "description"] ->
+              append_current_author ()
+            | _ -> ());
+            false
+          | Some v ->
+            (match path with
+            | ["first-name"; "author"; ("title-info" | "document-info"); "description"] ->
+              current_first_name := Some v
+            | ["middle-name"; "author"; ("title-info" | "document-info"); "description"] ->
+              current_middle_name := Some v
+            | ["last-name"; "author"; ("title-info" | "document-info"); "description"] ->
+              current_last_name := Some v
+            | ["book-title"; "title-info"; "description"] ->
+              title := Some v
+            | ["lang"; "title-info"; "description"] ->
+              lang := Some v
+            | ["genre"; "title-info"; "description"] ->
+              genre := Some v
+            | _ -> ());
+            false
+        ) ["description"]);
+
+        append_current_author (); (* Append the last author if any *)
+
+        { title = !title;
+          authors = List.rev !authors;
+          lang = !lang;
+          genre = !genre;
+        }
+      else
+        raise (Fb2_parse_error (Printf.sprintf "%s: no 'description' XML element found" path))
+    )

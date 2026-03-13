@@ -18,7 +18,7 @@ Current behavior (as implemented):
 
 - Scans only the top level of ``library_dir`` (no recursion yet)
 - Processes only files ending with ``.fb2``
-- Uses ``fb2_parse.parse_title_author`` for metadata extraction
+- Uses ``fb2_parse.parse_book_info`` for metadata extraction
 - Groups by author name (case-insensitive, first author only)
 - Sanitizes filenames and directory names
 - Moves files to ``target_dir/author_name/author_name - title.fb2``

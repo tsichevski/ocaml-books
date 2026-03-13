@@ -16,7 +16,7 @@
 
 open Book
 
-(** [parse_title_author path] parses the FB2 file at [path] using streaming XML parsing.
+(** [parse_book_info path] parses the FB2 file at [path] using streaming XML parsing.
 
     - Reads the file incrementally (does not load full content into memory)
     - Automatically detects encoding from XML declaration and recodes to UTF-8
@@ -28,6 +28,6 @@ open Book
     @raise Fb2_parse_error if required elements are missing or XML is malformed
     @raise Failure if the declared encoding is unsupported
 *)
-val parse_title_author : string -> title_info
+val parse_book_info : string -> title_info
 
 val validate : string -> unit
