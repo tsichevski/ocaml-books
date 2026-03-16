@@ -276,13 +276,15 @@ let validate_cmd =
         Printf.printf "Found %d .fb2 files\n%!" total;
       end;
 
-      Miou.run ~domains:jobs @@ fun () ->
-        let failures = ref 0 in
+  Miou.run
+    ~domains:jobs
+    (fun () ->
+      let failures = ref 0 in
 
         (* Create one lightweight fiber per file *)
         let tasks =
           List.map (fun path ->
-            async @@ fun k ->
+            async (fun k ->
               try
                 Ocaml_books.Fb2_parse.validate path;
                 if verbose then begin
@@ -304,19 +306,20 @@ let validate_cmd =
                   end
                 end;
                 `Failed reason
+            )
           ) !fb2_files
         in
 
         (* Wait for all validations to complete *)
-        ignore (Miou.await_all tasks);
+        ignore (await_all tasks);
 
         if !failures > 0 then
           Printf.printf "Validation complete: %d/%d files failed\n%!" !failures total
         else
           Printf.printf "All %d files validated successfully\n%!" total;
-
+    
         0
-
+    )
     with e ->
       Printf.eprintf "Validation failed: %s\n%!" (Printexc.to_string e);
       1
