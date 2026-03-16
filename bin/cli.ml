@@ -17,6 +17,7 @@
    Dependencies: cmdliner, ocaml_books (project library), Moiu *)
 
 open Cmdliner
+open Printf
 open Miou
 open Ocaml_books.Config
 open Ocaml_books.Unzip
@@ -67,15 +68,56 @@ let common_opts =
 let load_config verbose custom_path =
   match custom_path with
   | Some p when not (Sys.file_exists p) ->
-      if verbose then Printf.eprintf "Custom config %s not found, using defaults\n%!" p;
+      if verbose then eprintf "Custom config %s not found, using defaults\n%!" p;
       Ocaml_books.Config.default ()
   | Some p ->
-      if verbose then Printf.printf "Loading config from: %s\n%!" p;
+      if verbose then printf "Loading config from: %s\n%!" p;
       Ocaml_books.Config.load () (* TODO: add ~path support later if needed *)
   | None ->
-      if verbose then Printf.printf "Loading config from default locations\n%!";
+      if verbose then printf "Loading config from default locations\n%!";
       Ocaml_books.Config.load ()
 
+let parallel_execute jobs action on_failure files =
+  Miou.run ~domains:jobs
+    (fun () ->
+      let tasks =
+        List.map
+          (fun path ->
+            call
+              (fun () ->
+                try
+                  action path
+                with e ->
+                  on_failure e path
+              )
+          )
+          files
+      in
+      (* Wait for all validations to complete *)
+      ignore (await_all tasks))
+        
+let find_fb2_files dir =
+  let rec aux d accu =
+    if Ocaml_books.Fs.is_regular_file d then
+      if Filename.check_suffix d ".fb2" then
+        d::accu
+      else
+        accu
+    else
+      Sys.readdir d
+    |> Array.to_list
+    |> List.fold_left
+      (fun ac p ->
+        let path = Filename.concat d p in
+        let dir_contents = aux path [] in
+        List.append dir_contents ac
+      )
+      accu in
+        
+  aux dir []
+
+
+(* let () = List.iter print_endline (find_fb2_files "/media/vvt/576c72be-126f-4850-8fc6-20df6eac8965/books") *)
 
 (* ────────────────────────────────────────────── *)
 (* init command *)
@@ -95,7 +137,7 @@ let init_cmd =
   in
   Cmd.v info Term.(const (fun (v, c, d, m, j) ->
     if d then begin
-      Printf.printf "[dry-run] Would create default config\n%!";
+      printf "[dry-run] Would create default config\n%!";
       0
     end else
       let cfg = load_config v c in
@@ -103,10 +145,10 @@ let init_cmd =
       let path = Filename.concat (Sys.getenv "HOME") ".config/ocaml-books/config.json" in
       try
         Ocaml_books.Config.create_default path;
-        if verbose then Printf.printf "Created config: %s\n%!" path;
+        if verbose then printf "Created config: %s\n%!" path;
         0
       with e ->
-        Printf.eprintf "Failed to create config: %s\n%!" (Printexc.to_string e);
+        eprintf "Failed to create config: %s\n%!" (Printexc.to_string e);
         1
   ) $ common_opts)
 
@@ -137,16 +179,16 @@ let import_cmd =
     let verbose = v || cfg.verbose in
 
     if d then begin
-      Printf.printf "[dry-run] Would extract from %s to %s\n%!" path cfg.library_dir;
+      printf "[dry-run] Would extract from %s to %s\n%!" path cfg.library_dir;
       0
     end else
       match Ocaml_books.Unzip.extract_fb2_files path cfg.library_dir with
       | Ok extracted ->
          if verbose then
-           Printf.printf "Extracted %d FB2 files\n%!" (List.length extracted);
+           printf "Extracted %d FB2 files\n%!" (List.length extracted);
          0
       | Error msg ->
-         Printf.eprintf "Extraction failed: %s\n%!" msg;
+         eprintf "Extraction failed: %s\n%!" msg;
          1
   ) $ common_opts $ zip_path_arg)
 
@@ -174,15 +216,15 @@ let organize_cmd =
     let verbose = v || cfg.verbose in
     let max_component_len = if max_component_len = 0 then cfg.max_component_len else max_component_len in
     if verbose then begin
-      Printf.printf "Organize mode (max component length = %d bytes)\n%!" max_component_len;
-      Printf.printf " Source: %s\n" cfg.library_dir;
-      Printf.printf " Target: %s\n%!" cfg.target_dir;
-      if dry then Printf.printf " [dry-run] No files will be moved\n%!";
+      printf "Organize mode (max component length = %d bytes)\n%!" max_component_len;
+      printf " Source: %s\n" cfg.library_dir;
+      printf " Target: %s\n%!" cfg.target_dir;
+      if dry then printf " [dry-run] No files will be moved\n%!";
     end;
 
     try
       if not (Sys.is_directory cfg.library_dir) then
-        failwith (Printf.sprintf "Not a directory: %s" cfg.library_dir);
+        failwith (sprintf "Not a directory: %s" cfg.library_dir);
 
       let files =
         Sys.readdir cfg.library_dir
@@ -195,44 +237,75 @@ let organize_cmd =
       in
 
       if verbose then
-        Printf.printf "Found %d candidate FB2 files\n%!" (List.length files);
+        printf "Found %d candidate FB2 files\n%!" (List.length files);
 
-      List.iter
-        (fun path ->
-          if verbose then Printf.printf "Parsing: %s\n%!" path;
-          let book = Ocaml_books.Fb2_parse.parse_book_info path in
-          let author =
-            match book.authors with
-            | [] -> "UnknownAuthor"
-            | { first_name; middle_name; last_name; _} :: _ ->
-              match List.filter_map Fun.id [first_name; middle_name; last_name] with
-              | [] -> "UnknownAuthor"
-              | parts -> String.concat " " parts
+      Miou.run ~domains:jobs
+        (fun () ->
+          let tasks =
+            let failures = ref 0 in
+            List.map
+              (fun path ->
+                call (fun () ->
+                  if verbose then printf "Parsing: %s\n%!" path;
+                  try
+                    let book = Ocaml_books.Fb2_parse.parse_book_info path in
+                    let author =
+                      match book.authors with
+                      | [] -> "UnknownAuthor"
+                      | { first_name; middle_name; last_name; _} :: _ ->
+                        match List.filter_map Fun.id [first_name; middle_name; last_name] with
+                        | [] -> "UnknownAuthor"
+                        | parts -> String.concat " " parts
+                    in
+                    let title = Option.value ~default:"UnknownTitle" book.title in
+                    let author_dir = Filename.concat cfg.target_dir (Ocaml_books.Fs.sanitize_filename author max_component_len) in
+                    let dest_name = sprintf "%s.fb2" (Ocaml_books.Fs.sanitize_filename title max_component_len) in
+                    let dest_path = Filename.concat author_dir dest_name in
+               
+                    if dry then
+                      printf "[dry-run] Would move %s → %s\n%!" path dest_path
+                    else begin
+                      if verbose then printf "Moving %s → %s\n%!" path dest_path;
+                      Ocaml_books.Fs.mkdir_p author_dir;
+                      Sys.rename path dest_path
+                    end;
+                    `Ok
+                  with e ->
+                    incr failures;
+                    let reason = Printexc.to_string e in
+                    eprintf "%s → FAILED: %s\n%!" (Filename.basename path) reason;
+              
+                    if not dry then begin
+                      let dest_name = Filename.basename path in
+                      let dest_path = Filename.concat cfg.invalid_dir dest_name in
+                      Ocaml_books.Fs.mkdir_p cfg.invalid_dir;
+                      Sys.rename path dest_path;
+                      if verbose then begin
+                        printf " → Moved %s to %s\n%!" path dest_path;
+                      end
+                    end;
+                    `Failed reason
+                )
+              ) files
           in
-          let title = Option.value ~default:"UnknownTitle" book.title in
-          let author_dir = Filename.concat cfg.target_dir (Ocaml_books.Fs.sanitize_filename author max_component_len) in
-          let dest_name = Printf.sprintf "%s.fb2" (Ocaml_books.Fs.sanitize_filename title max_component_len) in
-          let dest_path = Filename.concat author_dir dest_name in
-
-          if dry then
-            Printf.printf "[dry-run] Would move %s → %s\n%!" path dest_path
-          else begin
-            if verbose then Printf.printf "Moving %s → %s\n%!" path dest_path;
-            Ocaml_books.Fs.mkdir_p author_dir;
-            Sys.rename path dest_path
-          end
-        ) files;
-
-      Printf.printf "Organized %d books\n%!" (List.length files);
-      0
-
+          (* Wait for all validations to complete *)
+          ignore (await_all tasks);
+        
+          printf "Organized %d books\n%!" (List.length files);
+          0
+        )
     with e ->
-      Printf.eprintf "Organize failed: %s\n%!" (Printexc.to_string e);
+      eprintf "Organize failed: %s\n%!" (Printexc.to_string e);
       1
   ) $ common_opts)
 
 (* ────────────────────────────────────────────── *)
 (* validate command *)
+
+(** Positional argument for validate: path to files to validate, default is *)
+let validate_path_arg =
+  let doc = "Path to files to validate, default is" in
+  Arg.(value & opt (some string) None & info ["path"] ~docv:"PATH" ~doc)
 
 (** Command "validate" — fully parses all FB2 files and moves invalid ones to invalid_dir *)
 let validate_cmd =
@@ -245,85 +318,66 @@ let validate_cmd =
   ] in
   let info = Cmd.info "validate" ~doc ~man ~exits:Cmd.Exit.defaults in
 
-  Cmd.v info Term.(const (fun (v, custom_path, dry, max_component_len, jobs) ->
+  Cmd.v info Term.(const (fun (v, custom_path, dry, max_component_len, jobs) source ->
     let cfg = load_config v custom_path in
     let verbose = v || cfg.verbose in
+    let source = match source with Some p -> p | None -> cfg.library_dir in
     (* jobs is kept for compatibility, but Miou ignores explicit count in most cases *)
     if verbose then begin
-      Printf.printf "Validate mode (using Miou concurrency)\n";
-      Printf.printf " Scanning: %s\n" cfg.library_dir;
-      Printf.printf " Failed files go to: %s\n" cfg.invalid_dir;
-      Printf.printf " Requested jobs: %d (Miou manages scheduling)\n%!" jobs;
-      if dry then Printf.printf " [dry-run] No files will be moved\n%!";
+      printf "Validate mode (using Miou concurrency)\n";
+      printf " Scanning: %s\n" source;
+      printf " Failed files go to: %s\n" cfg.invalid_dir;
+      printf " Requested jobs: %d (Miou manages scheduling)\n%!" jobs;
+      if dry then printf " [dry-run] No files will be moved\n%!";
     end;
 
-    try
-      let fb2_files = ref [] in
-      let rec scan dir =
-        let entries = Sys.readdir dir in
-        Array.iter (fun name ->
-          let path = Filename.concat dir name in
-          if Sys.is_directory path then
-            scan path
-          else if Ocaml_books.Fs.is_regular_file path && Filename.check_suffix path ".fb2" then
-            fb2_files := path :: !fb2_files
-        ) entries
-      in
-      scan cfg.library_dir;
-
-      let total = List.length !fb2_files in
-      if verbose then begin
-        Printf.printf "Found %d .fb2 files\n%!" total;
-      end;
-
-  Miou.run
-    ~domains:jobs
-    (fun () ->
-      let failures = ref 0 in
-
-        (* Create one lightweight fiber per file *)
-        let tasks =
-          List.map (fun path ->
-            call (fun () ->
-              try
-                Ocaml_books.Fb2_parse.validate path;
-                if verbose then begin
-                  Printf.printf "%s → OK\n%!" (Filename.basename path);
-                end;
-                `Ok
-              with e ->
-                incr failures;
-                let reason = Printexc.to_string e in
-                Printf.eprintf "%s → FAILED: %s\n%!" (Filename.basename path) reason;
-              
-                if not dry then begin
-                  let dest_name = Filename.basename path in
-                  let dest_path = Filename.concat cfg.invalid_dir dest_name in
-                  Ocaml_books.Fs.mkdir_p cfg.invalid_dir;
-                  Sys.rename path dest_path;
-                  if verbose then begin
-                    Printf.printf " → Moved %s to %s\n%!" path dest_path;
-                  end
-                end;
-                `Failed reason
-            )
-          ) !fb2_files
-        in
-
-        (* Wait for all validations to complete *)
-        ignore (await_all tasks);
-
-        if !failures > 0 then
-          Printf.printf "Validation complete: %d/%d files failed\n%!" !failures total
-        else
-          Printf.printf "All %d files validated successfully\n%!" total;
+    let fb2_files = ref [] in
+    let rec scan dir =
+      let entries = Sys.readdir dir in
+      Array.iter (fun name ->
+        let path = Filename.concat dir name in
+        if Sys.is_directory path then
+          scan path
+        else if Ocaml_books.Fs.is_regular_file path && Filename.check_suffix path ".fb2" then
+          fb2_files := path :: !fb2_files
+      ) entries
+    in
+    scan source;
     
-        0
-    )
-    with e ->
-      Printf.eprintf "Validation failed: %s\n%!" (Printexc.to_string e);
-      1
-  ) $ common_opts)
+    let total = List.length !fb2_files in
+    if verbose then begin
+      printf "Found %d .fb2 files\n%!" total;
+    end;
+    
+    let failures = ref 0 in
+    parallel_execute jobs
+      (fun path ->
+        Ocaml_books.Fb2_parse.validate path;
+        if verbose then
+          printf "%s → OK\n%!" (Filename.basename path);
+      )
+      (fun e path ->
+        incr failures;
+        let reason = Printexc.to_string e in
+        eprintf "%s → FAILED: %s\n%!" (Filename.basename path) reason;
+        
+        if not dry then begin
+          let dest_name = Filename.basename path in
+          let dest_path = Filename.concat cfg.invalid_dir dest_name in
+          Ocaml_books.Fs.mkdir_p cfg.invalid_dir;
+          Sys.rename path dest_path;
+          if verbose then
+            printf " → Moved %s to %s\n%!" path dest_path;
+        end;
+      )
+      !fb2_files;
+      
+    if !failures > 0 then
+      printf "Validation complete: %d/%d files failed\n%!" !failures total
+    else
+      printf "All %d files validated successfully\n%!" total;
+    0
+  ) $ common_opts $ validate_path_arg)
 
 (* ────────────────────────────────────────────── *)
 (* Main program *)
