@@ -284,7 +284,7 @@ let validate_cmd =
         (* Create one lightweight fiber per file *)
         let tasks =
           List.map (fun path ->
-            async (fun k ->
+            call (fun () ->
               try
                 Ocaml_books.Fb2_parse.validate path;
                 if verbose then begin

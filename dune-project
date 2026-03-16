@@ -25,7 +25,8 @@
   (ocaml (>= 5.0.0))
   camlzip
   (cmdliner (>= 1.2.0))
-  (domainslib (>= 0.5.0)))
+  (miou (>= 0.5.4))
+ )
 
  (tags
   ("ocaml" "books")))
