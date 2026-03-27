@@ -1,5 +1,5 @@
-(** Filter out anything but letters, replace 'ё' by 'ё', return the result lowercased *)
-let normalize_name s =
+(** Filter out anything but letters, replace 'ё' by 'ё', return the result title-cased *)
+let normalize_chunk s =
   let b = Buffer.create (String.length s) in
   Uutf.String.fold_utf_8
     (fun _ _ u ->
@@ -13,7 +13,11 @@ let normalize_name s =
                 Uchar.of_int 0x0435                 (* е *)
               else
                 u in
-            match Uucp.Case.Map.to_lower u with
+            let func = if Buffer.length b = 0 then
+              Uucp.Case.Map.to_upper
+            else
+              Uucp.Case.Map.to_lower in
+            match func u with
             | `Self -> Uutf.Buffer.add_utf_8 b u
             | `Uchars l -> List.iter (fun u -> Uutf.Buffer.add_utf_8 b u) l
           end
@@ -22,3 +26,7 @@ let normalize_name s =
     )
     () s;
   Buffer.contents b
+
+(** Filter out anything but letters, replace 'ё' by 'ё', return the result title-cased *)
+let normalize_name s =
+  String.split_on_char '-' s |> List.map normalize_chunk |> String.concat "-"
