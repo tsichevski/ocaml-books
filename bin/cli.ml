@@ -206,8 +206,6 @@ let index_cmd =
   in
   make_cmd "index" doc man action_term
 
-
-
 (** Main entry point *)
 let main () =
   let lock = Mutex.create () in
@@ -257,7 +255,7 @@ let main () =
         
     ignore(match cfg.log_file with
     | None -> Logs.set_reporter (Logs.format_reporter ())
-    | Some file -> Bookweald.Logging.setup_logs file);
+    | Some file -> Bookweald.Logging.setup file);
 
     Logs.set_level (match cfg.log_level with
     | None -> (Some Logs.Info)

@@ -1,53 +1,84 @@
-(** FB2 metadata extraction (streaming / SAX-style with xmlm).
+(** Streaming FB2 2.1 parser.
 
-    Parses FB2 files efficiently without loading the full document into memory.
-    Processing stops as soon as all [<title-info>] and [<document-info>]
-    elements are fully read and relevant metadata extracted.
+    This module provides functions to parse FictionBook (.fb2) files using a
+    streaming XML parser ([Xmlm]). It extracts metadata into a {!Book.book}
+    record, handles character recoding for legacy Russian encodings, and
+    supports author alias substitution.
 
-    Current limitations / assumptions:
-    - Authors collected from both [<title-info>] and [<document-info>]
-    - Input must be well-formed XML; no recovery from severe malformations
-    - Encoding declared in XML prologue is respected and converted to UTF-8
-      (via internal recoding support for common legacy Russian codepages)
-
-    Dependencies: xmlm, recoding_channel (internal), Book module types
-
-    @raise Fb2_parse_error on missing required elements, malformed structure,
-                          unsupported encoding, or I/O errors during parsing
+    Parsing is path-based and event-driven. The module also includes a minimal
+    validation function for quick sanity checks.
 *)
 
 open Book
 open Person
 
-(** {1 Main parsing function} *)
+(** {1 Exceptions} *)
 
-val parse_book_info : string -> (string, person) Hashtbl.t option -> book
-(** [parse_book_info path aliases] parses the FB2 file located at [path] using a streaming XML parser.
-
-    Behavior:
-    - Reads the file incrementally (low memory usage, suitable for large archives)
-    - Detects encoding from the XML declaration and converts legacy codepages
-      (e.g. CP1251, KOI8-R) to Unicode/UTF-8
-    - Extracts title from the first [<book-title>] inside [<title-info>]
-    - Collects author(s) from [<author>] elements (name parts: first-name, middle-name, last-name)
-    - Stops parsing early after the closing tag of the first relevant info block
-
-    @param path Absolute or relative filesystem path to a .fb2 file
-    @param aliases Optional alias -> canonical author name table
-    @return A [book] record populated with extracted title and author information
-    @raise Fb2_parse_error if required metadata is missing or XML is invalid
-    @raise Failure if the declared encoding is unsupported or file cannot be opened
+exception Fb2_parse_error of string
+(** Raised when the FB2 structure is invalid or required sections are missing.
+    The string contains a descriptive message including the file path when possible.
 *)
 
-(** {1 Validation / debugging} *)
+(** {1 Main parsing functions} *)
+
+val parse_book_info :
+  string -> (string, person) Hashtbl.t option -> book
+(** [parse_book_info path aliases] parses a single FB2 file at [path] and
+    returns a fully populated {!Book.book} record.
+
+    @param path Path to the .fb2 file (can be inside a ZIP, but the file must
+           be extracted first).
+    @param aliases Optional hash table of author aliases (see {!Alias.load_aliases}).
+           If provided, matching author names are replaced by their canonical form.
+
+    @return A {!Book.book} with:
+            - normalized title and authors
+            - extracted language, genre, ext_id, version
+            - original filename and detected encoding
+
+    @raise Fb2_parse_error if the <description> section is missing or malformed.
+    @raise Failure if the book has no title (via {!Book.book_create_exn}).
+    @raise Failure for unsupported encodings (via recoding layer).
+*)
 
 val validate : string -> unit
-(** [validate path] performs a basic well-formedness check on the FB2 file.
+(** [validate path] performs a minimal parse to verify that the file is a
+    well-formed FB2 document with at least a root <FictionBook> element.
 
-    Currently checks XML structure. Does not extract metadata.
+    Does not extract metadata. Useful for quick filtering of corrupt or
+    non-FB2 files before full parsing.
 
-    Intended for batch verification of library archives.
+    @raise Fb2_parse_error or Failure on malformed XML or missing root element.
+*)
 
-    @param path Path to the FB2 file to check
-    @raise Fb2_parse_error on validation failure with descriptive message
+(** {1 Low-level helpers (exposed for testing / advanced use)} *)
+
+val locate : Xmlm.input -> string list -> bool
+(** [locate input path] returns [true] if the exact element path exists
+    anywhere in the document.
+
+    The path is given as a reversed list of tag names (e.g. ["book-title"; "title-info"; "description"]).
+    Used internally by the parser.
+*)
+
+val parse_visit :
+  string ->
+  (Xmlm.input -> string -> unit) -> unit
+(** [parse_visit path handler] opens the file, detects its XML encoding,
+    sets up the appropriate recoding channel (UTF-8, CP1251, KOI8-R),
+    and passes the [Xmlm.input] to the provided [handler].
+
+    The handler receives the input and the detected encoding string.
+
+    This is the common entry point used by both [validate] and [parse_book_info].
+*)
+
+(** {1 Notes} *)
+
+(* Supported encodings (detected from XML declaration):
+   - "utf-8"
+   - "windows-1251" / "cp1251"
+   - "koi8-r"
+
+   Any other encoding raises Failure with a descriptive message.
 *)
