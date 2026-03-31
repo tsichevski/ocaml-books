@@ -19,7 +19,7 @@
     Fields control library paths, behavior flags, parallelism, logging,
     author aliases, and PostgreSQL connection settings.
 
-    Example JSON snippet (new grouped style):
+    Example JSON snippet:
 
     {[
       {
