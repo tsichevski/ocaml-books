@@ -62,6 +62,10 @@ type t = {
   (** Optional path to a log file. If [None], logs go to stdout. *)
   log_file : string option;
 
+  (** Optional path to the invalid files list.
+      If [None], illegal files will not be managed. *)
+  invalid_list_file : string option;
+
   (** If [true] and [log_file] is set: truncate the log file on startup
       (drop existing content). Otherwise append (default).
       Has no effect when [log_file = None]. *)
@@ -132,6 +136,8 @@ let default () : t =
     log_file         = None;
     log_level        = None;
     drop_existing_log_file_on_start = false;
+    invalid_list_file = None;
+    
     (* PostgreSQL defaults – grouped *)
     database         = default_database ()
   }
@@ -184,8 +190,5 @@ let create_default (path : string) : unit =
   if not (Sys.file_exists dir) then
     Fs.mkdir_p dir ~perm:0o755;
 
-  let oc = open_out path in
-  Fun.protect ~finally:(fun () -> close_out_noerr oc)
-    (fun () ->
-      output_string oc (pretty ^ "\n");
-      flush oc)
+  Out_channel.with_open_gen [Open_wronly; Open_creat] 0o644 path
+    (fun oc -> output_string oc (pretty ^ "\n"))

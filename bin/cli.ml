@@ -181,14 +181,13 @@ let validate_cmd =
   let man = [
     `S Manpage.s_description;
     `P "Fully parses each .fb2 file.";
-    `P "Files that fail validation are moved to configured invalid_dir.";
+    `P "Invalid files are appended to invalid_list_file.";
     `P "Respects --dry-run (only prints actions).";
   ] in
   let action_term =
-    Term.(const (fun source_dir dry overwrite jobs -> `Validate (source_dir, dry, overwrite, jobs))
+    Term.(const (fun source_dir dry jobs -> `Validate (source_dir, dry, jobs))
           $ source_dir
           $ dry_run
-          $ overwrite
           $ jobs)
   in
   make_cmd "validate" doc man action_term
@@ -387,13 +386,15 @@ let main () =
             exit 0
         end
         
-      | `Validate (source_dir, dry, overwrite, jobs) ->
+      | `Validate (source_dir, dry, jobs) ->
         let source_dir = match source_dir with Some p -> p | None -> cfg.library_dir in
+        let invalid_files = cfg.invalid_list_file in
         Log.info (fun m ->
           if dry then
-            m "Validate mode\n Scanning: %s\n %s\n Requested jobs: %d" source_dir "[dry-run] No files/DB will be changed" jobs
-          else
-            m "Validate mode\n Scanning: %s\n Failed files go to: %s\n Requested jobs: %d" source_dir cfg.invalid_dir jobs);
+            m "Validate mode\n Scanning: %s\n %s\n Requested jobs: %d" source_dir "[dry-run] No files will be changed" jobs
+          else match invalid_files with
+          | None -> m "Validate mode\n Scanning: %s\n %s\n Requested jobs: %d" source_dir "No invalid books file is configured" jobs
+          | Some file -> m "Validate mode\n Scanning: %s\n Invalid boocs will be registered in: %s\n Requested jobs: %d" source_dir file jobs);
 
         let fb2_files = find_fb2_files source_dir in
     
@@ -411,13 +412,14 @@ let main () =
             let reason = Printexc.to_string e in
             Log.warn (fun m -> m "%s → FAILED: %s" (Filename.basename path) reason);
         
-            if not dry then begin
-              let dest_name = Filename.basename path in
-              let dest_path = Filename.concat cfg.invalid_dir dest_name in
-              Fs.mkdir_p cfg.invalid_dir;
-              Sys.rename path dest_path;
-              Log.debug (fun m -> m " → Moved %s to %s" path dest_path);
-            end;
+            if not dry then
+              Log.info (fun m ->
+                Log.warn (fun m -> m "Invalid file: %s" path);
+                match invalid_files with
+                | None -> ()
+                | Some file ->
+                  Bookweald.Invalid_files.append file path "BADXML" ""
+              );
           )
           fb2_files);
       
