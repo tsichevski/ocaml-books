@@ -311,12 +311,14 @@ let connect
   ?(dbname = "books")
   () : connection
   =
-  new Postgresql.connection
+  let c = new Postgresql.connection
     ~host
     ~dbname
     ~user
     ~password
     ~port:(string_of_int port)
-    ()
+    () in
+  c#set_notice_processor (fun _msg -> ());  (* ignore everything *)
+  c
 
 let close (c : connection) = c#finish

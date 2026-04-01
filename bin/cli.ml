@@ -1,7 +1,8 @@
-(* Command-line interface for the OCaml Books tool.
+(** Command-line interface for the OCaml Books tool.
 Uses Cmdliner (2.1.0) for subcommands, flags, automatic help/man-page generation.
 
 Supported subcommands:
+
 - init       create default configuration file
 - extract    extract FB2 files from ZIP archive(s)
 - group      parse FB2 files and move them into author-named subdirectories

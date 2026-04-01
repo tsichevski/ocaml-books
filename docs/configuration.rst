@@ -133,7 +133,7 @@ Configuration File Locations
 
 The tool searches for ``config.json`` in this order (first match wins):
 
-1. ``./config.json`` (current directory — useful for overrides)
+1. The value passed with ``--config`` option
 2. ``~/.config/bookweald/config.json`` (XDG-style user config)
 
 Default Configuration Creation
