@@ -32,9 +32,9 @@ The configuration is represented by a record with the following fields:
   on program startup.  
   Default: false (append mode).
 
-- invalid_list_file (string, optional)  
+- blacklist (string, optional)  
   Path to the file where invalid FB2 files will be recorded (one per line).  
-  If ``None``, illegal files are not managed (see ``docs/illegal-files.rst``).
+  If ``None``, blacklisted files are not managed (see ``docs/illegal-files.rst``).
 
 
 Default values
@@ -46,7 +46,7 @@ When no valid config file is found, the tool uses these defaults::
    target_dir       = ~/books/organized
    dry_run          = false
    drop_existing_log_file_on_start = false
-   invalid_list_file = None
+   blacklist = None
    
 Configuration file locations
 ----------------------------
@@ -97,7 +97,7 @@ Example config file
      "target_dir":  "/home/user/my-fb2-collection/organized",
      "dry_run":     false,
      "drop_existing_log_file_on_start": false,
-     "invalid_list_file": "/home/user/.config/bookweald/illegal_files.txt",
+     "blacklist": "/home/user/.config/bookweald/blacklist.txt",
    }
 
 The file is created in pretty-printed JSON format for readability.

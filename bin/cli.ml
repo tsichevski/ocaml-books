@@ -5,7 +5,7 @@ Supported subcommands:
 - init       create default configuration file
 - extract    extract FB2 files from ZIP archive(s)
 - group      parse FB2 files and move them into author-named subdirectories
-- validate   fully parse all FB2 files as XML and move invalid ones to invalid_dir
+- validate   fully parse all FB2 files as XML
 - index      add files to index
 
 Common flags:
@@ -24,6 +24,7 @@ module Logging = Bookweald.Logging
 module Unzip = Bookweald.Unzip
 module Fb2_parse = Bookweald.Fb2_parse
 module Alias = Bookweald.Alias
+module Blacklist = Bookweald.Blacklist
 
 module Log = (val Logs.src_log (Logs.Src.create "bookweald" ~doc:"Tool commands") : Logs.LOG)
 
@@ -91,7 +92,7 @@ let connect (cfg : Config.t) as_admin =
   Db.connect ~host:db.host ~user:user ~password:password ~port:db.port ~dbname:db.name ()
 
 let dry_run =
-  let doc = "Do not actually write anything, just show what would happen." in
+  let doc = "Do not actually change anything, just show what would happen." in
   Arg.(value & flag & info ["n"; "dry-run"] ~doc)
 
 let source_dir =
@@ -101,6 +102,10 @@ let source_dir =
 let overwrite =
   let doc = "Overwrite existing files without asking." in
   Arg.(value & flag & info ["f"; "force"] ~doc)
+
+let reverse_blacklisted =
+  let doc = "Reverse black list: process blacklisted files only." in
+  Arg.(value & flag & info ["r"; "reverse"] ~doc)
 
 (** Maximum allowed byte length of any single filename or directory component.
 0 = no artificial limit (use OS/filesystem limit) *)
@@ -175,19 +180,21 @@ let group_cmd =
   in
   make_cmd "group" doc man action_term
 
-(** Command "validate" — fully parses all FB2 files and moves invalid ones to invalid_dir *)
+(** Command "validate" — fully parses all FB2 files and register invalid ones to blacklist file *)
 let validate_cmd =
   let doc = "Validate all FB2 files in the specified directory for XML conformance" in
   let man = [
     `S Manpage.s_description;
     `P "Fully parses each .fb2 file.";
-    `P "Invalid files are appended to invalid_list_file.";
+    `P "Invalid files are appended to invalid_files.";
+    `P "Respects --reverse (validate blacklisted files only).";
     `P "Respects --dry-run (only prints actions).";
   ] in
   let action_term =
-    Term.(const (fun source_dir dry jobs -> `Validate (source_dir, dry, jobs))
+    Term.(const (fun source_dir dry reverse jobs -> `Validate (source_dir, dry, reverse, jobs))
           $ source_dir
           $ dry_run
+          $ reverse_blacklisted
           $ jobs)
   in
   make_cmd "validate" doc man action_term
@@ -272,6 +279,7 @@ let main () =
     begin
       match action with
       | `Extract (zip, dry_run, overwrite) ->
+        let dry_run = dry_run || cfg.dry_run in
         if dry_run then
           Log.info (fun m -> m "[dry-run] Would extract from %s to %s" zip cfg.library_dir)
         else begin
@@ -287,6 +295,7 @@ let main () =
       
       | `Init dry_run ->
         begin
+          let dry_run = dry_run || cfg.dry_run in
           if dry_run then begin
             Log.info (fun m -> m "[dry-run] Would create default config");
             exit 0
@@ -301,8 +310,8 @@ let main () =
               exit 1
         end
         
-      | `Group (source_dir, dry_run, overwrite, max_component_len, jobs)
-        ->
+      | `Group (source_dir, dry_run, overwrite, max_component_len, jobs) ->
+        let dry_run = dry_run || cfg.dry_run in
         let source_dir = match source_dir with Some p -> p | None -> cfg.library_dir in
 
         let aliases = match cfg.alias_file with
@@ -370,71 +379,97 @@ let main () =
         exit 0
 
       | `SchemaInit dry_run ->
+        let dry_run = dry_run || cfg.dry_run in
+        if not dry_run then
+          begin
+            try
+              Log.info (fun m -> m "Initialize DB schema");
+              let admconn = connect cfg true in
+              Db.drop_schema admconn;
+              Db.init_schema admconn;
+              Db.close admconn;
+            with e ->
+              let msg =
+                match e with
+                | Postgresql.Error pe -> Postgresql.string_of_error pe
+                | _ -> Printexc.to_string e in
+              Log.err (fun m -> m "Schema init failed with: %s" msg);
+              exit 0
+          end
+        
+      | `Validate (source_dir, dry_run, reverse, jobs) ->
         begin
-          try
-            Log.info (fun m -> m "Initialize DB schema");
-            let admconn = connect cfg true in
-            Db.drop_schema admconn;
-            Db.init_schema admconn;
-            Db.close admconn;
-          with e ->
-            let msg =
-              match e with
-              | Postgresql.Error pe -> Postgresql.string_of_error pe
-              | _ -> Printexc.to_string e in
-            print_endline msg;
-            exit 0
-        end
+          let dry_run = dry_run || cfg.dry_run
+          and source_dir = match source_dir with Some p -> p | None -> cfg.library_dir
+          and blacklist = cfg.blacklist in
         
-      | `Validate (source_dir, dry, jobs) ->
-        let source_dir = match source_dir with Some p -> p | None -> cfg.library_dir in
-        let invalid_files = cfg.invalid_list_file in
-        Log.info (fun m ->
-          if dry then
-            m "Validate mode\n Scanning: %s\n %s\n Requested jobs: %d" source_dir "[dry-run] No files will be changed" jobs
-          else match invalid_files with
-          | None -> m "Validate mode\n Scanning: %s\n %s\n Requested jobs: %d" source_dir "No invalid books file is configured" jobs
-          | Some file -> m "Validate mode\n Scanning: %s\n Invalid boocs will be registered in: %s\n Requested jobs: %d" source_dir file jobs);
+          Log.info (fun m -> m "Validate mode\n Scanning: %s\n jobs: %d" source_dir jobs);
 
-        let fb2_files = find_fb2_files source_dir in
-    
-        let total = List.length fb2_files in
-        Log.info (fun m -> m "Found %d .fb2 files" total);
-    
-        let failures = ref 0 in
-        ignore(parallel_execute jobs
-          (fun path ->
-            Fb2_parse.validate path;
-            Log.debug (fun m -> m "%s → OK" (Filename.basename path));
-          )
-          (fun e path ->
-            incr failures;
-            let reason = Printexc.to_string e in
-            Log.warn (fun m -> m "%s → FAILED: %s" (Filename.basename path) reason);
+          let in_blacklist =
+            match blacklist with
+            | None ->
+              Log.info (fun m -> m "No black list file will be used");
+              (fun _ -> true)
+              
+            | Some path ->
+              Log.info (fun m -> m "Black list file: %s, reverse action: %b" path reverse);
+              let table = Blacklist.load path in
+              let length = Hashtbl.length table in
+              if length > 0 then
+                Log.info (fun m -> m "Blacklist table has %d unique filenames" length);
+              
+              (fun path -> (Hashtbl.mem table (Filename.basename path)))
+          in
         
-            if not dry then
-              Log.info (fun m ->
-                Log.warn (fun m -> m "Invalid file: %s" path);
-                match invalid_files with
+          let fb2_files = find_fb2_files source_dir in
+          
+          let black, not_black = List.partition in_blacklist fb2_files in
+    
+          let blacklisted_length = List.length black in
+          let to_process = if reverse then black else not_black in
+          Log.info (fun m -> m "fb2 files found: %d total, %d blacklisted, %d to process."
+            (List.length fb2_files)            
+            blacklisted_length
+            (List.length to_process));
+    
+          let failures = ref 0 in
+          ignore(parallel_execute jobs
+            (fun path ->
+              Fb2_parse.validate path;
+              Log.debug (fun m -> m "%s → OK" (Filename.basename path));
+            )
+            (fun e path ->
+              incr failures;
+              let reason = Printexc.to_string e in
+              let basename = Filename.basename path in
+              Log.warn (fun m -> m "%s → FAILED: %s" basename reason);
+              if not dry_run then
+                match blacklist with
                 | None -> ()
                 | Some file ->
-                  Bookweald.Invalid_files.append file path "BADXML" ""
-              );
-          )
-          fb2_files);
+                  if not (in_blacklist basename) then
+                    begin
+                      Log.info (fun m -> m "Adding to blacklist %s" basename);
+                      Blacklist.append file path reason
+                    end
+            )
+            to_process);
       
-        if !failures > 0 then
-          Log.info (fun m -> m "Validation complete: %d/%d files failed" !failures total)
-        else
-          Log.info (fun m -> m "All %d files validated successfully" total);
-        exit 0
-
-      | `Index (source_dir, dry, overwrite, jobs) ->
+          if !failures > 0 then
+            Log.warn (fun m -> m "Validation complete: %d/%d files failed" !failures blacklisted_length)
+          else
+            Log.info (fun m -> m "All %d files validated successfully" blacklisted_length);
+          
+          exit 0
+        end
+        
+      | `Index (source_dir, dry_run, overwrite, jobs) ->
+        let dry_run = dry_run || cfg.dry_run in
         let source_dir = match source_dir with Some p -> p | None -> cfg.library_dir in
         Log.info (fun m -> m "Index mode\n Scanning: %s\n Requested jobs: %d"
           source_dir
           jobs);
-        if dry then Log.info (fun m -> m " [dry-run] No files will be indexed");
+        if dry_run then Log.info (fun m -> m " [dry-run] No files will be indexed");
 
         let fb2_files = find_fb2_files source_dir in
     

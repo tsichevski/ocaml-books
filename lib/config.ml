@@ -50,63 +50,64 @@ type t = {
   invalid_dir : string;
 
   (** If [true], simulate all operations without modifying the filesystem or database. *)
-  dry_run : bool;
+  dry_run : bool [@default false];
 
   (** Maximum allowed length of a single filename component (directory or file name).
       [0] means no limit (default). *)
-  max_component_len : int;
+  max_component_len : int [@default 0];
 
   (** Number of parallel jobs (domain pool). Set to [1] to disable parallelism. *)
-  jobs : int;
+  jobs : int [@default 1];
 
   (** Optional path to a log file. If [None], logs go to stdout. *)
-  log_file : string option;
+  log_file : string option [@default None];
 
-  (** Optional path to the invalid files list.
+  (** Optional path to the file black list.
+      If omitted in JSON or set to null → None.
       If [None], illegal files will not be managed. *)
-  invalid_list_file : string option;
+  blacklist : string option [@default None];
 
   (** If [true] and [log_file] is set: truncate the log file on startup
       (drop existing content). Otherwise append (default).
       Has no effect when [log_file = None]. *)
-  drop_existing_log_file_on_start : bool;
+  drop_existing_log_file_on_start : bool [@default false];
 
   (** Optional logging level override.
       Supported values: "quiet", "error", "warning", "info", "debug", "app".
       If [None], the default level (INFO) is used. *)
-  log_level : string option;
+  log_level : string option [@default None];
 
   (** Optional path to author alias JSON file (see {!Alias.load_aliases}). *)
-  alias_file : string option;
+  alias_file : string option [@default None];
 
   (** Grouped PostgreSQL connection settings (preferred). *)
   database : database_config;
-} [@@deriving yojson { strict = false }]
+} [@@deriving yojson]
 
 and database_config = {
   (** Database hostname. *)
-  host : string;
+  host : string   [@default "localhost"];
 
   (** Database port (default: 5432). *)
-  port : int;
+  port : int [@default 5432];
 
   (** Database username for normal operations. *)
-  user : string;
+  user : string [@default "books"];
 
   (** Password for the normal database user. *)
-  passwd : string;
+  passwd : string [@default "books"];
 
   (** Database name. *)
-  name : string;
+  name : string [@default "books"];
 
   (** Admin username (used for schema initialization). *)
-  admin : string;
+  admin : string [@default "admin"];
 
   (** Admin password (used for schema initialization). *)
-  admin_passwd : string;
-} [@@deriving yojson { strict = false }]
+  admin_passwd : string [@default "admin"];
+} [@@deriving yojson]
 
-(** [default_database ()] returns sensible defaults for the database section. *)
+(** [default_database] returns sensible defaults for the database section. *)
 let default_database () : database_config =
   {
     host         = "localhost";
@@ -136,7 +137,7 @@ let default () : t =
     log_file         = None;
     log_level        = None;
     drop_existing_log_file_on_start = false;
-    invalid_list_file = None;
+    blacklist = None;
     
     (* PostgreSQL defaults – grouped *)
     database         = default_database ()
