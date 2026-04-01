@@ -1,70 +1,49 @@
 (**
-   Streaming decoder for legacy single-byte Russian encodings (CP1251 / KOI8-R)
-   to UTF-8 on-the-fly.
+   Streaming decoder for legacy single-byte encodings to UTF-8 on-the-fly.
 
-   This module provides a thin wrapper around [In_channel.t] that reads data
-   in legacy Windows-1251 or KOI8-R encoding and delivers it as UTF-8 encoded
-   bytes, character by character.
+   Supported encodings:
+   - Windows-1251 (CP1251) – Russian Cyrillic (Windows)
+   - KOI8-R – Russian Cyrillic (Unix legacy)
+   - Windows-1252 – Western European with smart quotes and €
+   - ISO-8859-1 (Latin-1) – Classic Western European
+   - ISO-8859-5 (Latin/Cyrillic) – Official Cyrillic
+   - Windows-1255 (CP1255) – Hebrew with Niqqud support
 
-   Main usage patterns:
+   This module wraps a standard [in_channel] (opened in binary mode)
+   and converts high bytes (0x80–0xFF) to proper UTF-8 sequences
+   while passing ASCII (0x00–0x7F) unchanged.
+*)
 
-   {v
-     (* CP1251 example *)
-     let decoder = create_cp1251 stdin in
-     while let Some c = input_byte decoder do
-       Stdlib.print_char c
-     done;
-
-     (* KOI8-R example *)
-     let decoder = create_koi8r (In_channel.create ~binary:true "book.fb2") in
-     ...
-   v}
-
-   Features:
-   - Zero-cost passthrough for ASCII bytes (0x00–0x7F)
-   - Transparent conversion of high bytes (0x80–0xFF) to UTF-8 sequences
-   - Buffering of partial UTF-8 multi-byte sequences across calls
-   - CP1251: undefined code points mapped to U+FFFD (replacement character)
-   - KOI8-R: all code points defined (no replacement needed)
-
-   Limitations:
-   - Sequential forward reading only (no seeking, no position reporting)
-   - No error recovery for invalid input beyond replacement character
-   - Designed for metadata extraction (title/author), not full document parsing
- *)
-
-(** Decoder state: holds the chosen encoding table, underlying input channel
-    and a small buffer of pending UTF-8 bytes from the last converted character. *)
+(** Opaque decoder state. *)
 type t
 
-(** [create_norecode] creates a no-recoding UTF-8 → UTF-8 decoder. *)
-val create_direct : In_channel.t -> t
+(** {2 Creation functions} *)
 
-(** [create_cp1251 input] creates a Windows-1251 → UTF-8 decoder. *)
-val create_cp1251 : In_channel.t -> t
+(** [create_cp1251 ic] creates a decoder that converts Windows-1251 to UTF-8. *)
+val create_cp1251 : in_channel -> t
 
-(** [create_cp1252 input] creates a Windows-1252 → UTF-8 decoder. *)
-val create_cp1252 : In_channel.t -> t
+(** [create_koi8r ic] creates a decoder that converts KOI8-R to UTF-8. *)
+val create_koi8r : in_channel -> t
 
-(** [create_cp1255 input] creates a Windows-1255 → UTF-8 decoder. *)
-val create_cp1255 : In_channel.t -> t
+(** [create_cp1252 ic] creates a decoder that converts Windows-1252 to UTF-8. *)
+val create_cp1252 : in_channel -> t
 
-(** [create_koi8r input] creates a KOI8-R → UTF-8 decoder
-    (using the standard RFC 1489 mapping). *)
-val create_koi8r : In_channel.t -> t
+(** [create_iso8859_1 ic] creates a decoder that converts ISO-8859-1 (Latin-1) to UTF-8. *)
+val create_iso8859_1 : in_channel -> t
 
-(** [create_iso8859_1 input] creates a ISO-8859-1 → UTF-8 decoder. *)
-val create_iso8859_1 : In_channel.t -> t
+(** [create_iso8859_5 ic] creates a decoder that converts ISO-8859-5 to UTF-8. *)
+val create_iso8859_5 : in_channel -> t
 
-(** [create_iso8859_5 input] creates a ISO-8859-5 → UTF-8 decoder. *)
-val create_iso8859_5 : In_channel.t -> t
+(** [create_cp1255 ic] creates a decoder that converts Windows-1255 to UTF-8. *)
+val create_cp1255 : in_channel -> t
 
-(** [create_iso8859_5 input] creates a ISO-8859-5 → UTF-8 decoder. *)
-val create_iso8859_5 : In_channel.t -> t
+  (** [create_direct ic] creates a decoder that passes data with no conversion (to handle UTF-8 to UTF-8). *)
+val create_direct : in_channel -> t
 
-(** [input_byte t] reads and returns the next byte of the UTF-8 encoded stream.
+(** {2 Input functions} *)
 
-    @return [Some c] — next UTF-8 byte
-    @return [None] — end of input reached
-*)
-val input_byte: t -> int option
+(** [input_byte decoder] returns the next UTF-8 byte from the decoded stream.
+
+    Returns [None] on end-of-file.
+    Multi-byte UTF-8 characters are buffered internally and emitted byte-by-byte. *)
+val input_byte : t -> int option
