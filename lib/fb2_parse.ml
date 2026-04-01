@@ -65,6 +65,10 @@ let parse_visit path h =
       let rindex = match encoding with
         | "utf-8" -> Recoding_channel.create_direct ic
         | "windows-1251" | "cp1251" -> Recoding_channel.create_cp1251 ic
+        | "windows-1252" | "cp1252" -> Recoding_channel.create_cp1252 ic
+        | "windows-1255" | "cp1255"  -> Recoding_channel.create_cp1255 ic
+        | "iso-8859-1" -> Recoding_channel.create_iso8859_1 ic
+        | "iso-8859-5" -> Recoding_channel.create_iso8859_5 ic
         | "koi8-r" -> Recoding_channel.create_koi8r ic
         | _ -> failwith (Printf.sprintf "Unsupported encoding in %s: %s" path encoding)
       in

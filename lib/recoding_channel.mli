@@ -43,9 +43,24 @@ val create_direct : In_channel.t -> t
 (** [create_cp1251 input] creates a Windows-1251 → UTF-8 decoder. *)
 val create_cp1251 : In_channel.t -> t
 
+(** [create_cp1252 input] creates a Windows-1252 → UTF-8 decoder. *)
+val create_cp1252 : In_channel.t -> t
+
+(** [create_cp1255 input] creates a Windows-1255 → UTF-8 decoder. *)
+val create_cp1255 : In_channel.t -> t
+
 (** [create_koi8r input] creates a KOI8-R → UTF-8 decoder
     (using the standard RFC 1489 mapping). *)
 val create_koi8r : In_channel.t -> t
+
+(** [create_iso8859_1 input] creates a ISO-8859-1 → UTF-8 decoder. *)
+val create_iso8859_1 : In_channel.t -> t
+
+(** [create_iso8859_5 input] creates a ISO-8859-5 → UTF-8 decoder. *)
+val create_iso8859_5 : In_channel.t -> t
+
+(** [create_iso8859_5 input] creates a ISO-8859-5 → UTF-8 decoder. *)
+val create_iso8859_5 : In_channel.t -> t
 
 (** [input_byte t] reads and returns the next byte of the UTF-8 encoded stream.
 
