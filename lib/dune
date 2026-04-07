@@ -18,4 +18,4 @@
   (pps ppx_deriving_yojson
  ))
  (flags :standard -g)
- (inline_tests))
+)

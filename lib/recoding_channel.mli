@@ -9,8 +9,7 @@
    - ISO-8859-5 (Latin/Cyrillic) – Official Cyrillic
    - Windows-1255 (CP1255) – Hebrew with Niqqud support
 
-   This module wraps a standard [in_channel] (opened in binary mode)
-   and converts high bytes (0x80–0xFF) to proper UTF-8 sequences
+   This module converts high bytes (0x80–0xFF) to proper UTF-8 sequences
    while passing ASCII (0x00–0x7F) unchanged.
 *)
 
@@ -20,31 +19,23 @@ type t
 (** {2 Creation functions} *)
 
 (** [create_cp1251 ic] creates a decoder that converts Windows-1251 to UTF-8. *)
-val create_cp1251 : in_channel -> t
+val create_cp1251 : char Seq.t -> t
 
 (** [create_koi8r ic] creates a decoder that converts KOI8-R to UTF-8. *)
-val create_koi8r : in_channel -> t
+val create_koi8r : char Seq.t -> t
 
 (** [create_cp1252 ic] creates a decoder that converts Windows-1252 to UTF-8. *)
-val create_cp1252 : in_channel -> t
+val create_cp1252 : char Seq.t -> t
 
 (** [create_iso8859_1 ic] creates a decoder that converts ISO-8859-1 (Latin-1) to UTF-8. *)
-val create_iso8859_1 : in_channel -> t
+val create_iso8859_1 : char Seq.t -> t
 
 (** [create_iso8859_5 ic] creates a decoder that converts ISO-8859-5 to UTF-8. *)
-val create_iso8859_5 : in_channel -> t
+val create_iso8859_5 : char Seq.t -> t
 
 (** [create_cp1255 ic] creates a decoder that converts Windows-1255 to UTF-8. *)
-val create_cp1255 : in_channel -> t
-
-  (** [create_direct ic] creates a decoder that passes data with no conversion (to handle UTF-8 to UTF-8). *)
-val create_direct : in_channel -> t
+val create_cp1255 : char Seq.t -> t
 
 (** {2 Input functions} *)
 
-(** [input_char decoder] returns the next UTF-8 byte from the decoded stream.
-
-    Returns [None] on end-of-file.
-    Multi-byte UTF-8 characters are buffered internally and emitted byte-by-byte. *)
-val input_char : t -> char option
-
+val to_seq : t -> char Seq.t

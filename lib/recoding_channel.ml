@@ -566,61 +566,48 @@ let cp1255_to_uchar_array : Uchar.t array =
 
 (** Decoder state *)
 type t = {
-  table: Uchar.t array option; (* The recoding table or None for identity *)
-  input: In_channel.t;         (* The input source *)
-  buffer: bytes;               (* Buffer to keep UTF8 characters *)
-  mutable index: int;          (* Current in-buffer index *)
-  mutable available : int      (* Buffer bytes available *)
+  table: Uchar.t array;      (* The recoding table or None for identity *)
+  mutable underlying: char Seq.t;         (* The input source *)
+  buffer: bytes;             (* Buffer to keep UTF8 characters *)
+  mutable read_pos: int;        (* Current in-buffer read_pos *)
+  mutable available : int    (* Buffer bytes available *)
 }
   
-let create table input = { table; input; buffer = Bytes.create 4; index = 0; available = 0 }
+let create table underlying = { table; underlying; buffer = Bytes.create 4; read_pos = 0; available = 0 }
 
-let create_cp1251    = create (Some cp1251_to_uchar_array)
-let create_cp1252    = create (Some windows1252_to_uchar_array)
-let create_koi8r     = create (Some koi8r_to_uchar_array)
-let create_iso8859_1 = create (Some iso8859_1_to_uchar_array)
-let create_iso8859_5 = create (Some iso8859_5_to_uchar_array)
-let create_cp1255    = create (Some cp1255_to_uchar_array)
+let create_cp1251    = create cp1251_to_uchar_array
+let create_cp1252    = create windows1252_to_uchar_array
+let create_koi8r     = create koi8r_to_uchar_array
+let create_iso8859_1 = create iso8859_1_to_uchar_array
+let create_iso8859_5 = create iso8859_5_to_uchar_array
+let create_cp1255    = create cp1255_to_uchar_array
 
-(** [create_direct ic] creates a pass-through channel for already UTF-8 content.
-
-    No recoding is performed. Used when the XML declaration specifies "utf-8".
-*)
-let create_direct = create None
-
-let input_char t =
-  match t.table with
-  | None -> In_channel.input_char t.input
-  | Some table ->
-    let rec loop () =
-      let index = t.index in
-      if index < t.available then
-        begin
-          t.index <- index + 1;
-          Some (Char.chr (Bytes.get_uint8 t.buffer index))
-        end
-      else
-        match In_channel.input_char t.input with
-        | None -> None
-        | Some c as r ->
-          let sc = Char.code c in
-          if (sc < 128) then
-            r
-          else
-            begin
-              let idx = sc - 0x80 in
-              let uchar = 
-                if idx >= Array.length table then
-                  Uchar.of_int sc
-                else                
-                  table.(sc - 0x80)
-              in
-              let nbytes = Uchar.utf_8_byte_length uchar in
-              (* Printf.printf "nbytes %i\n" nbytes; *)
-              t.index <- 0;
-              t.available <- Bytes.set_utf_8_uchar t.buffer 0 uchar;
-              assert (t.available = nbytes);
-              loop ()
-            end
-    in
-    loop ()
+let to_seq m : char Seq.t =
+  let rec make () =
+    let pos = m.read_pos in
+    if m.available > pos then begin
+      let c = Bytes.get m.buffer pos in
+      m.read_pos <- pos + 1;
+      Seq.Cons (c, make)
+    end else
+      match Seq.uncons m.underlying with
+      | None -> Seq.Nil
+      | Some (c, tail) ->
+        m.underlying <- tail;
+        let sc = Char.code c in
+        if (sc < 128) then
+          Seq.Cons (c, make)
+        else
+          let idx = sc - 0x80 in
+          let table = m.table in
+          let uchar = 
+            if idx >= Array.length table then
+              Uchar.of_int sc
+            else                
+              table.(sc - 0x80)
+          in
+          m.read_pos <- 0;
+          m.available <- Bytes.set_utf_8_uchar m.buffer 0 uchar;
+          make ()
+  in
+  make

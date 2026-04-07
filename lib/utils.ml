@@ -82,3 +82,12 @@ let filter_map_concat_list l ch f =
 let filter_map_concat s sep f =
   filter_map_concat_list (String.split_on_char sep s) sep f
 
+let ic_to_seq ic =
+  let rec make () =
+    match In_channel.input_byte ic with
+    | Some b ->
+      Seq.Cons ((Char.chr b), make)
+    | None -> Seq.Nil
+  in
+  make
+
