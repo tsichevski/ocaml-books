@@ -23,7 +23,7 @@
  (description "Manage Personal Book Repository in FB2 Format")
  (depends
   (ocaml (>= 5.0.0))
-  camlzip
+  zipc
   (cmdliner (>= 1.2.0))
   (miou (>= 0.5.4))
   postgresql

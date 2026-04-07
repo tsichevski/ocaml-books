@@ -18,6 +18,20 @@
  )
  (modes exe)
  )
+(executable
+ (name test_input_channel)
+ (libraries
+   bookweald
+ )
+ (modes exe)
+ )
+(executable
+ (name test_unzipping_channel)
+ (libraries
+   bookweald
+ )
+ (modes exe)
+ )
 ; (executable
 ;  (name caqti_connect)
 ;  (libraries
@@ -38,6 +52,10 @@
 ;  (libraries irmin)
 ;  (modes exe)
 ;  )
+ ; (preprocess
+ ;  (pps ppx_inline_test
+ ;       ppx_assert
+ ;       ppx_expect))
 (rule
  (alias runtest)                  ; ← dune test will run this
  (action (run ./run_tests.exe)))  ; ← runs your alcotest binary

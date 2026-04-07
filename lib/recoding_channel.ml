@@ -588,21 +588,22 @@ let create_cp1255    = create (Some cp1255_to_uchar_array)
 *)
 let create_direct = create None
 
-let input_byte t : int option =
+let input_char t =
   match t.table with
-  | None -> In_channel.input_byte t.input
+  | None -> In_channel.input_char t.input
   | Some table ->
     let rec loop () =
       let index = t.index in
       if index < t.available then
         begin
           t.index <- index + 1;
-          Some (Bytes.get_uint8 t.buffer index)
+          Some (Char.chr (Bytes.get_uint8 t.buffer index))
         end
       else
-        match In_channel.input_byte t.input with
+        match In_channel.input_char t.input with
         | None -> None
-        | Some sc as r ->
+        | Some c as r ->
+          let sc = Char.code c in
           if (sc < 128) then
             r
           else

@@ -1,76 +1,10 @@
-(** ZIP archive extraction utilities for FB2 files.
-
-    This module provides functions to extract .fb2 files from ZIP archives.
-    It supports two extraction backends:
-
-    - Pure OCaml using the ``zipc`` library (fast for archives < ~4.5 GB).
-    - External ``7z`` tool as a fallback for very large archives (to avoid memory exhaustion).
-
-    Only files ending with ``.fb2`` (case-sensitive) are extracted.
-    Directories inside the archive are ignored.
-    Extracted files are placed flat into the target directory (no sub-directory preservation).
-
-    Dependencies: ``zipc``, ``unix``, ``fs`` (for ``mkdir_p``).
-*)
-
 open Zipc
 open Unix
 
-exception Zipc_error of string
-(** Raised for ZIP-specific errors (e.g. corrupted archive, unsupported format, 7z failure). *)
-
-(** [read_file_binary path] reads the entire content of a binary file into a string.
-
-    Returns [Ok content] on success or [Error msg] on I/O failure.
-
-    Example:
-
-    {[
-      match read_file_binary "archive.zip" with
-      | Ok data -> Printf.printf "Read %d bytes\n" (String.length data)
-      | Error e -> Printf.eprintf "Failed: %s\n" e
-    ]}
-*)
-let read_file_binary path : (string, string) result =
-  try
-    In_channel.with_open_bin path
-      (fun ic -> Ok (really_input_string ic (in_channel_length ic)))
-  with Sys_error msg ->
-    Error msg
-
-(** [extract_fb2_files ?overwrite zip_path target_dir] extracts all .fb2 files
-    from the ZIP archive at [zip_path] into [target_dir].
-
-    Behaviour:
-    - If the archive is larger than 4.5 GB, falls back to the external ``7z`` command
-      (requires ``7z`` to be installed in PATH). In this case the returned list is empty
-      and the caller is expected to scan [target_dir] for extracted files.
-    - For smaller archives, uses pure OCaml ``zipc`` extraction.
-    - Creates necessary parent directories using {!Fs.mkdir_p}.
-    - Prints progress ("Extracted: filename.fb2") to stdout for user feedback.
-    - Continues extraction even if individual files fail (only logs the error).
-
-    @param overwrite If [false] and a file with the same name already exists in
-           [target_dir], the existing file is skipped (default: [true]).
-
-    @return [Ok paths] — list of full paths to successfully extracted .fb2 files
-            (in reverse order of appearance in the archive).
-    @return [Error msg] — if the archive could not be opened or the fallback failed.
-
-    Example:
-
-    {[
-      match extract_fb2_files "library.zip" "/tmp/extracted" with
-      | Ok paths ->
-          Printf.printf "Extracted %d FB2 files\n" (List.length paths)
-      | Error e ->
-          Printf.eprintf "Extraction failed: %s\n" e
-    ]}
-*)
 let extract_fb2_files ?(overwrite:bool = true) zip_path target_dir : (string list, string) result =
   let size = (Unix.stat zip_path).Unix.st_size in
 
-  if Int.to_float size > 4_500_000_000.0 then begin
+  if size > 4_500_000_000 then begin
     (* Large archive fallback to avoid memory exhaustion with zipc *)
     Printf.printf "Large archive (%.1f GB) detected — using external 7z\n"
       (Int.to_float size /. 1e9);
@@ -87,7 +21,7 @@ let extract_fb2_files ?(overwrite:bool = true) zip_path target_dir : (string lis
     (* Normal size — use pure OCaml zipc *)
     let ( let* ) = Result.bind in
 
-    let* content = read_file_binary zip_path in
+    let content = Fs.read_file_binary zip_path in
     let* zip =
       match Zipc.of_binary_string content with
       | Ok z -> Ok z
@@ -133,3 +67,32 @@ let extract_fb2_files ?(overwrite:bool = true) zip_path target_dir : (string lis
 
     Ok fb2_paths_rev
   end
+
+let unzip_fb2_file contents =
+  let zip =
+    match Zipc.of_binary_string contents with
+    | Ok z -> z
+    | Error e -> failwith (Printf.sprintf "Failed to parse ZIP: %s" e)
+  in
+
+  match Zipc.fold
+    (fun member acc ->
+      match Zipc.Member.kind member with
+      | Zipc.Member.Dir -> acc
+      | Zipc.Member.File file ->
+        let name = Zipc.Member.path member in
+        if (Filename.check_suffix name ".fb2") then
+          match acc with
+          | Some data -> failwith "More than one .fb2 entry in an archive"
+          | None -> 
+            match Zipc.File.to_binary_string file with
+            | Ok data ->
+              Some data
+            | Error e ->
+              failwith (Printf.sprintf "Failed to decompress %s: %s\n" name e)
+        else acc
+    )
+    zip None
+  with
+  | None -> failwith "No matching .fb2 file in archive"
+  | Some d -> d

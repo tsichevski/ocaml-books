@@ -73,9 +73,9 @@ let parse_visit path h =
         | _ -> failwith (Printf.sprintf "Unsupported encoding in %s: %s" path encoding)
       in
       let fn () =
-        match Recoding_channel.input_byte rindex with
+        match Recoding_channel.input_char rindex with
         | None -> raise End_of_file
-        | Some c -> c
+        | Some c -> Char.code c
       in
       let input = Xmlm.make_input (`Fun fn) in
       h input encoding

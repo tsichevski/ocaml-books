@@ -65,12 +65,12 @@ let parallel_execute jobs action on_failure files =
 
       Miou.await_all tasks)
 
-(** Recursively find all regular files with .fb2 extension in a directory
-This function is used in several commands. *)
+(** Recursively find all regular files with .fb2 or .fb2.zip extension in a directory
+    This function is used in several commands. *)
 let find_fb2_files dir =
   let rec aux d accu =
     if Fs.is_regular_file d then
-      if Filename.check_suffix d ".fb2" then
+      if Filename.check_suffix d ".fb2" || Filename.check_suffix d ".fb2.zip" then
         d::accu
       else
         accu

@@ -1,15 +1,15 @@
 open Alcotest
 open Bookweald.Recoding_channel
 
-let bytes_to_string bytes : string = String.concat
+let bytes_to_string charlist : string = String.concat
   ""
   (List.map
-    (fun c -> String.make 1 (Char.chr c))
-    bytes)
+    (fun c -> String.make 1 c)
+    charlist)
 
 let recode_stream rc =
   let rec loop accu =
-    match Bookweald.Recoding_channel.input_byte rc with
+    match Bookweald.Recoding_channel.input_char rc with
     | None -> accu
     | Some ch ->
       loop (ch::accu)

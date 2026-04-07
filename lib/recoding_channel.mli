@@ -42,8 +42,9 @@ val create_direct : in_channel -> t
 
 (** {2 Input functions} *)
 
-(** [input_byte decoder] returns the next UTF-8 byte from the decoded stream.
+(** [input_char decoder] returns the next UTF-8 byte from the decoded stream.
 
     Returns [None] on end-of-file.
     Multi-byte UTF-8 characters are buffered internally and emitted byte-by-byte. *)
-val input_byte : t -> int option
+val input_char : t -> char option
+

@@ -3,29 +3,19 @@
  (public_name bookweald)
  (synopsis "Manage FB2 archive")
  (libraries
-   unix
    zipc
    xmlm
    yojson ppx_deriving_yojson.runtime
 
-   caqti
-   caqti-lwt
-   caqti-driver-sqlite3   ; optional – install conditionally or always
-   caqti-driver-postgresql ; optional
-   lwt
-
-   uucp uutf
-   re
+   uucp
+   uutf
    postgresql
    logs fmt logs.fmt
-   logs.cli
  )
 
  ;(modules_without_implementation db)
  (preprocess
   (pps ppx_deriving_yojson
-       ppx_inline_test ppx_assert
-       ppx_expect
  ))
  (flags :standard -g)
  (inline_tests))
