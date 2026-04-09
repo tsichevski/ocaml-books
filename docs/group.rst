@@ -1,6 +1,6 @@
-================
-Organize Command
-================
+=============
+Group Command
+=============
 
 .. contents::
    :depth: 2
@@ -10,20 +10,18 @@ Organize Command
 Purpose
 -------
 
-The ``group`` subcommand parses all FB2 files in the configured ``library_dir``,
+The ``group`` command parses all FB2 files in the configured ``library_dir``,
 extracts author and title metadata, groups books by author, and moves them into
 subdirectories under ``target_dir`` named after each author.
 
-Current behavior (as implemented):
+Current behavior:
 
-- Scans only the top level of ``library_dir`` (no recursion yet)
-- Processes only files ending with ``.fb2``
-- Uses ``fb2_parse.parse_book_info`` for metadata extraction
+- Scans the ``library_dir`` recursively
+- Processes files ending with ``.fb2`` or ``.fb2.zip``
 - Groups by author name (case-insensitive, first author only)
 - Sanitizes filenames and directory names
-- Moves files to ``target_dir/author_name/author_name - title.fb2``
+- Moves files to ``target_dir/author_name/title.fb2``
 - Respects ``--dry-run`` (prints actions instead of moving)
-- Respects ``--verbose`` (shows detailed progress and errors)
 
 This is the core feature for making books accessible by author via subdirectories.
 
@@ -37,16 +35,13 @@ Basic::
 
 With options::
 
-   bookweald group --verbose
    bookweald group --dry-run
    bookweald group --config ./custom-config.json
-
 
 Behavior details
 ----------------
 
-1. Loads configuration (library_dir, target_dir, dry_run, verbose)
-
+1. Loads configuration (``library_dir``, ``target_dir``, ``dry_run``)
 2. Lists all regular files in ``library_dir`` that end with ``.fb2``
 
 3. For each file:

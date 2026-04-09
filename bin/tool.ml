@@ -296,7 +296,7 @@ let () =
   let tool = Cmd.group ~default:default_term info subcommands in
 
   match Cmd.eval_value tool with
-  | Ok (`Ok (config_file, action)) ->        
+  | Ok (`Ok (config_file, action)) ->
     (* Dispatch action *)
     begin
       match action with
@@ -353,6 +353,15 @@ let () =
         let total = List.length fb2_files in
         Log.info (fun m -> m "Found %d candidate FB2 files" total);
 
+        let table = Hashtbl.create total in
+        let mutex = Mutex.create () in
+        let rec uniq_name nm n =
+          let nm = if n = 0 then nm else Printf.sprintf "%s(%d)" nm n in
+          if Hashtbl.mem table nm then
+            uniq_name nm (n + 1)
+          else
+            nm
+        in
         let failures = ref 0 in
         ignore(parallel_execute jobs
           (fun path ->
@@ -360,23 +369,39 @@ let () =
             let author =
               match book.authors with
               | [] -> "UnknownAuthor"
-              | { first_name; middle_name; last_name; _} :: _ ->
-                match List.filter_map Fun.id [first_name; middle_name; last_name] with
-                | [] -> "UnknownAuthor"
-                | parts -> String.concat " " parts
+              | author :: _ -> author.id
             in
             let title = book.title in
             let author_dir = Filename.concat cfg.target_dir (Fs.sanitize_filename author max_component_len) in
-            let dest_name = Printf.sprintf "%s.fb2" (Fs.sanitize_filename title max_component_len) in
+            (* Sanitized title *)
+            let dest_name = Fs.sanitize_filename title max_component_len in
+            (* Sanitized destination path (no extension) *)
             let dest_path = Filename.concat author_dir dest_name in
-
-            if not (path = dest_path) then
+            (* Sanitized destination path with optional suffix for uniquenes (no extension) *)
+            let dest_path_uniq =
+              Mutex.lock mutex;
+              Fun.protect ~finally:(fun () -> Mutex.unlock mutex)
+                (fun () ->
+                  let key = uniq_name dest_path 0 in
+                  Hashtbl.add table key path;
+                  key)
+            in
+            (* Get original file suffix *)
+            let suffix = if Filename.check_suffix path ".fb2" then
+              ".fb2"
+            else if Filename.check_suffix path ".fb2.zip" then
+              ".fb2.zip"
+            else failwith "Unexpected file suffix"
+            in
+            (* Destination path complete with original suffix *)
+            let dest_path_uniq = dest_path_uniq ^ suffix in
+            if not (path = dest_path_uniq) then
               if dry_run then
-                Log.debug (fun m -> m "[dry-run] Would move %s → %s" path dest_path)
+                Log.debug (fun m -> m "[dry-run] Would move %s → %s" path dest_path_uniq)
               else begin
-                Log.debug (fun m -> m "Moving %s → %s" path dest_path);
+                Log.debug (fun m -> m "Moving %s → %s" path dest_path_uniq);
                 Fs.mkdir_p author_dir;
-                Sys.rename path dest_path
+                Sys.rename path dest_path_uniq
               end;
           )
           (fun e path ->
@@ -389,7 +414,7 @@ let () =
         if !failures > 0 then
           Log.info (fun m -> m "Organization complete: %d/%d files failed" !failures total)
         else
-          Log.info (fun m -> m  "All %d files groupd successfully" total);
+          Log.info (fun m -> m  "All %d files grouped successfully" total);
         exit 0
 
       | `SchemaInit dry_run ->
