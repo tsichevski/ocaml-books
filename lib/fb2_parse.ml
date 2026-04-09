@@ -65,14 +65,14 @@ let parse_visit path h =
       let src = 
         if Filename.check_suffix path "fb2.zip" then
           begin
-            Log.debug (fun m -> m "Opening unzipping channel for %s" path);
+            (* Log.debug (fun m -> m "Opening unzipping channel for %s" path); *)
             Unzip.unzip_fb2_file src
           end
         else
           src
       in        
       let encoding, src = Xml_declaration.read_declaration src in
-      Log.debug (fun m -> m "File encoding %s" encoding);
+      (* Log.debug (fun m -> m "File encoding %s" encoding); *)
       let seq =
         if encoding = "utf-8" then
           src

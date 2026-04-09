@@ -342,16 +342,23 @@ let () =
         in
         
         let max_component_len = if max_component_len = 0 then cfg.max_component_len else max_component_len in
-        Log.info (fun m -> m "Grouping books by author ...\nSource %s\nOrganize mode (max component length = %d bytes)\n Source: %s\n Target: %s"
+        Log.info (fun m -> m "Grouping books by author:\n    Source %s\n    Target: %s\n    Max component length = %d"
           source_dir
-          max_component_len
-          source_dir
-          cfg.target_dir);
+          cfg.target_dir
+          max_component_len);
         if dry_run then Log.info (fun m -> m " [dry-run] No files will be moved");
 
         let fb2_files = find_fb2_files source_dir in
+        let blacklist = cfg.blacklist in
+        let blacklisted = blacklisted blacklist in
+        let black, to_process = List.partition blacklisted fb2_files in
         let total = List.length fb2_files in
-        Log.info (fun m -> m "Found %d candidate FB2 files" total);
+        let blacklisted_length = List.length black in
+        let to_process_length = List.length to_process in
+        Log.info (fun m -> m "fb2 files found: %d total, %d blacklisted, %d to process."
+          (List.length fb2_files)            
+          blacklisted_length
+          to_process_length);
 
         let table = Hashtbl.create total in
         let mutex = Mutex.create () in
@@ -373,7 +380,7 @@ let () =
             in
             let title = book.title in
             let author_dir = Filename.concat cfg.target_dir (Fs.sanitize_filename author max_component_len) in
-            (* Sanitized title *)
+            (* Sanitized title (no extension) *)
             let dest_name = Fs.sanitize_filename title max_component_len in
             (* Sanitized destination path (no extension) *)
             let dest_path = Filename.concat author_dir dest_name in
@@ -409,12 +416,12 @@ let () =
             let reason = Printexc.to_string e in
             Log.warn (fun m -> m "%s → FAILED: %s" (Filename.basename path) reason);
           )
-          fb2_files);
+          to_process);
 
         if !failures > 0 then
-          Log.info (fun m -> m "Organization complete: %d/%d files failed" !failures total)
+          Log.info (fun m -> m "Organization complete: %d/%d files failed" !failures to_process_length)
         else
-          Log.info (fun m -> m  "All %d files grouped successfully" total);
+          Log.info (fun m -> m  "All %d files grouped successfully" to_process_length);
         exit 0
 
       | `SchemaInit dry_run ->
@@ -440,13 +447,13 @@ let () =
       | `Validate (source_dir, dry_run, reverse, jobs) ->
         let cfg = config config_file in
         begin
-          let dry_run = dry_run || cfg.dry_run
-          and source_dir = match source_dir with Some p -> p | None -> cfg.library_dir
-          and blacklist = cfg.blacklist in
+          let dry_run = dry_run || cfg.dry_run in
+          let source_dir = match source_dir with Some p -> p | None -> cfg.library_dir in
         
           Log.info (fun m -> m "Validate mode\n Scanning: %s\n jobs: %d" source_dir jobs);
 
           let fb2_files = find_fb2_files source_dir in
+          let blacklist = cfg.blacklist in
           let blacklisted = blacklisted blacklist in
           let black, not_black = List.partition blacklisted fb2_files in
 

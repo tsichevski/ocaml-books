@@ -6,96 +6,81 @@ Group Command
    :depth: 2
    :local:
 
-
 Purpose
 -------
 
-The ``group`` command parses all FB2 files in the configured ``library_dir``,
-extracts author and title metadata, groups books by author, and moves them into
-subdirectories under ``target_dir`` named after each author.
+The ``group`` command organizes your digital book library by author. It scans the library directory for FB2 book files, extracts metadata, sanitizes names, and moves each book into an author-named subdirectory under the target directory.
 
-Current behavior:
+The resulting structure is always:
 
-- Scans the ``library_dir`` recursively
-- Processes files ending with ``.fb2`` or ``.fb2.zip``
-- Groups by author name (case-insensitive, first author only)
-- Sanitizes filenames and directory names
-- Moves files to ``target_dir/author_name/title.fb2``
-- Respects ``--dry-run`` (prints actions instead of moving)
+``target_dir/Author Name/Title.fb2``
 
-This is the core feature for making books accessible by author via subdirectories.
+Filename Devising Algorithm
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+1. **Author handling**:
+   - Only the **first** ``<author>`` block in the FB2 metadata is used.
+   - All other authors (if any) are completely ignored for directory.
+   - Parts ``<last-name>``, ``<first-name>``, ``<middle-name>`` are taken in order, skipping empty ones after normalization.
+   - Joined with single spaces, then passed through the global sanitization function (restricts the maximum file name length).
+   - If the result is empty, falls back to ``"UnknownAuthor"``.
+
+2. **Title handling**:
+   - The ``<book-title>`` text is taken (the library parsing layer **guarantees** that a parsed book always has a non-empty title)
+   - The title is passed through the global sanitization function (removes illegal characters, collapses whitespace, trims, restricts the maximum file name length).
+
+3. **Basename creation**:
+   - The sanitized title is used as initial basename (without extension).
+   - The original file extension is preserved (usually ``.fb2``, or kept as ``.fb2.zip`` if the source was a zipped FB2).
+
+4. **Uniqueness handling in the author directory**:
+   - The tool first computes the ideal target path (author directory + sanitized title + extension).
+   - It then checks whether a file with that exact basename was seen already in the current program run.
+   - If a conflict is detected, it automatically appends a numeric suffix to the **title**:
+     - First conflict → ``Title(1).fb2``
+     - Second conflict → ``Title(2).fb2``
+     - And so on, incrementing the number until a free name is found.
+   - The suffix is added before the extension.
+
+5. **Length limiting**:
+   - The configured ``max-component-len`` is applied to both the author directory name and the full basename.
+   - Truncation happens intelligently if needed, while always preserving the extension.
+
+Key Features
+------------
+
+- Recursively scans for ``.fb2`` and ``.fb2.zip`` files
+- Robust metadata parsing with strict title guarantee
+- Consistent global sanitization for safe cross-platform filenames
+- Automatic conflict resolution via numeric suffixes on the title only
+- Dry-run mode to preview every planned move/rename
+- Force mode to overwrite existing files
+- Parallel processing support
+- Per-file error reporting (does not stop on single-file failures)
 
 Usage
 -----
 
-Basic::
+Basic usage::
 
    bookweald group
 
-With options::
+Common options:
 
-   bookweald group --dry-run
-   bookweald group --config ./custom-config.json
+- ``--dry-run`` / ``-n``: Preview without moving anything
+- ``--force`` / ``-f``: Overwrite without prompting
+- ``--path PATH``: Custom source directory
+- ``--max-component-len N``: Limit path component length
+- ``--jobs N`` / ``-j N``: Parallel jobs (1 disables parallelism)
 
-Behavior details
-----------------
+Example::
 
-1. Loads configuration (``library_dir``, ``target_dir``, ``dry_run``)
-2. Lists all regular files in ``library_dir`` that end with ``.fb2``
+   bookweald group --dry-run --path ./books
 
-3. For each file:
-   - Parses author and title
-   - On success: adds to in-memory grouping (Hashtbl by lowercase author)
-   - On failure: prints error (does not stop processing)
+Notes
+-----
 
-4. For each author group:
-   - Creates subdirectory ``target_dir / sanitized_author``
-   - For each book:
-     - Builds filename ``sanitized_author - sanitized_title.fb2``
-     - In dry-run: prints what would be moved
-     - Otherwise: moves the file using ``Sys.rename``
-
-5. Prints summary (number of books processed, failures)
-
-
-Known limitations (current version)
------------------------------------
-
-- No recursive scan of subdirectories in ``library_dir``
-- Only the first ``<author>`` block is used (no support for multiple authors yet)
-- Filename collisions (same author + title) overwrite without warning
-- No copy mode (always move)
-- No progress bar or detailed statistics
-- No undo / backup of moved files
-
-
-Example output (with --verbose)
--------------------------------
-
-   Scanning directory: /home/user/books/incoming
-   Found 12 candidate FB2 files
-   Parsed: Лев Толстой → Война и мир
-   Parsed: Антон Чехов → Вишнёвый сад
-   Parse failed: broken.fb2: missing <title-info>
-   Created directory: /home/user/books/organized/лев толстой
-   Moved /home/user/books/incoming/war_and_peace.fb2 → /home/user/books/organized/лев толстой/лев толстой - война и мир.fb2
-   Organized 11 books
-
-
-Future improvements (planned)
------------------------------
-
-- Recursive directory scanning
-- Support multiple authors per book (join with ", " or separate entries)
-- Filename collision handling (add counter: "Title (2).fb2")
-- Copy mode (--copy flag)
-- Progress reporting or summary table
-- Undo log / backup of original files
-
-
-See also
---------
-
-- Configuration Management — how to set ``library_dir`` and ``target_dir``
-- Command-line Interface — full list of options and subcommands
+- Only the first author determines the destination directory, other authors in the metadata are ignored for grouping and naming
+- Because the library ensures every parsed book has a title, the basename is always well-formed
+- Author directories are reused; no duplicate folders are created
+- The process respects any configured blacklist
