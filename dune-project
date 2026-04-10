@@ -2,11 +2,11 @@
 (name bookweald)
 (wrapped_executables false)
 (generate_opam_files true)
-(source (github username/reponame))
+(source (github tsichevski/bookweald))
 (authors "Vladimir Tsichevski <tsichevski@gmail.com>")
 (maintainers "Vladimir Tsichevski <tsichevski@gmail.com>")
 (bug_reports https://github.com/tsichevski/bookweald/issues)
-(documentation https://url/to/documentation)
+(documentation https://github.com/tsichevski/bookweald/wiki)
 
 (license MIT)
 

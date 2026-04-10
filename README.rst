@@ -7,40 +7,34 @@ Home Book Library Management Project
    :local:
 
 
-Overview
---------
+Introduction
+------------
 
-A lightweight OCaml tool for organizing a personal collection of FB2 e-books.
+Bookweald is a command-line tool and OCaml library for managing, indexing, and processing FictionBook (FB2) digital libraries.
 
-Current scope (narrowed minimal viable implementation):
+It provides fast parsing, normalization, recoding, searching, and database-backed organization of FB2 files, with support for compression, character encoding detection/conversion, and metadata handling.
 
-- Import books from ZIP archives containing FB2 files
-- Extract individual FB2 files to a working directory
-- Parse basic metadata from FB2: book title and author name(s)
-- Group books by author (in-memory for now)
-- Organize files by moving them into subdirectories named after authors
+Key Features
+~~~~~~~~~~~~
 
-Future / optional directions (not yet implemented):
-
-- Persistent index (using `index` library or SQLite)
-- Navigation tool / CLI to browse by author
-- Handling legacy Russian encodings (currently assumes UTF-8)
-- Zipping processed originals
-- Better filename sanitization & collision handling
-- Support for multiple authors per book, series info, etc.
-
-
-Programming Language
---------------------
-
-OCaml 5.x
-
+- FB2 2.1 parsing and validation support
+- Character encoding support (UTF-8, CP1251, KOI8-R, etc.)
+- Streaming decompression for zipped archives
+- Efficient indexing
+- Blacklist and author alias management
 
 Location
 --------
 
 https://github.com/tsichevski/bookweald
 
+Quickstart
+----------
+
+See ``docs/quickstart.rst`` for installation and basic usage.
+
+.. note::
+   Detailed configuration options are documented in ``docs/configuration.rst``.
 
 Current Libraries Used
 ----------------------
