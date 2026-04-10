@@ -2,9 +2,10 @@
 Home Book Library Management Tool
 =================================
 
-.. contents::
-   :depth: 2
-   :local:
+.. toctree::
+   :maxdepth: 2
+
+   quickstart
 
 Programming Language
 --------------------
