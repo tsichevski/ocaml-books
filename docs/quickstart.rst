@@ -124,14 +124,12 @@ Fast check the results with something like this::
 
   echo "SELECT id, title, encoding, filename FROM books WHERE title LIKE 'Война и мир';" | psql -U books -w books
 
-The output will look similar to this::
-
 The output will look like this::
   
-     id   |    title    |   encoding   | filename 
-  --------+-------------+--------------+--------------
-   100799 | Война и мир | windows-1251 | war_and_peace
-   363574 | Война и мир | utf-8        | wap
-   352545 | Война и мир | utf-8        | 12345
-  (3 rows)
+       id   |    title    |   encoding   | filename 
+    --------+-------------+--------------+--------------
+     100799 | Война и мир | windows-1251 | war_and_peace
+     363574 | Война и мир | utf-8        | wap
+     352545 | Война и мир | utf-8        | 12345
+    (3 rows)
   

@@ -93,3 +93,9 @@ Required Libraries (OPAM packages)
 - xmlm     — lightweight SAX-style XML parsing for FB2
 - cmdliner — for command-line interface
 
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
