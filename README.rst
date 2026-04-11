@@ -64,7 +64,7 @@ Project Structure (current)
   bookweald/
   ├── bin/
   │   ├── dune
-  │   └── main.ml               # entry point (currently minimal/test)
+  │   └── tool.ml               # entry point (currently minimal/test)
   ├── lib/
   │   ├── dune
   │   ├── fs.ml                 # mkdir_p helper
@@ -81,10 +81,10 @@ How to Build & Run (current)
 ::
 
    # In project root
-   dune build bin/main.exe
+   dune build bin/tool.exe
 
    # Run (example – adjust paths)
-   ./_build/default/bin/main.exe
+   ./_build/default/bin/tool.exe
 
 
 Current Limitations & Next Steps
@@ -93,7 +93,7 @@ Current Limitations & Next Steps
 - Assumes all FB2 files are valid UTF-8 (no legacy encoding conversion yet)
 - Author name is taken from the first <author> block only
 - Files are extracted but not yet moved/grouped by author
-- No command-line interface (only hardcoded test calls in main.ml)
+- No command-line interface (only hardcoded test calls in tool.ml)
 - No persistent index or navigation tool
 
 Planned next steps (in rough priority order):
