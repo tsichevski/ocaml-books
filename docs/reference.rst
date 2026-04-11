@@ -14,6 +14,7 @@ Available Commands
    :maxdepth: 2
 
    init_cmd
+   validate_cmd
    group_cmd
 
 **extract** ``<zipfile>``
@@ -24,16 +25,6 @@ Extracts FB2 books from a ZIP archive into your incoming library folder (``libra
 - Works with regular ZIP files and very large archives (larger than 4.5 GB).
 - For large archives it automatically uses the external ``7z`` tool and prints a notice.
 - Creates any needed folders automatically.
-
-**validate**
-~~~~~~~~~~~~
-
-Checks all FB2 files in your incoming library folder for basic correctness.
-
-- Scans recursively for ``*.fb2`` and ``*.fb2.zip`` files.
-- Performs a quick check that each file is well-formed XML.
-- Adds any invalid or broken files to the blacklist (``blacklist.txt`` by default) so they are ignored in future runs.
-- This is a fast sanity check only.
 
 **schema-init**
 ~~~~~~~~~~~~~~~

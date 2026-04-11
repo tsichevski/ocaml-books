@@ -1,34 +1,23 @@
-=========
-Blacklist
-=========
+.. _blacklisting:
+
+============
+Blacklisting
+============
 
 .. index:: blacklist, illegal files, broken files, duplicates, registry
-.. contents::
-   :depth: 2
-   :local:
 
-Introduction
-------------
+Bookweald supports blacklisting: files, which are no valid FB2 documents, are put to a registry, and permanently excluded from indexing and other processing.
 
-This document describes the format and handling of the ``blacklist.txt`` registry used by bookweald to permanently exclude certain files from indexing and other processing.
-This includes pure duplicates, broken FB2/XML files, files without titles, and other problematic cases.
+Blacklist is human-editable text file. It intended both by **manual** and **programmatic** editing.
+For all commands requiring this feature the file is loaded into an in-memory table on-demand.
+File **base names** are stored (absolute paths are unreliable because files can be imported from any directory).
 
-Command supporting blacklisting
--------------------------------
+Currently :ref:`validate_cmd` and :ref:`group_cmd` supports blacklisting.
 
-Currently only ``validate`` command supports blacklisting.
+File Location and Format
+------------------------
 
-Rules
----------
-
-- **Rule**: ``blacklist.txt`` is human-editable text file. It intended both by manual and programmatic editing.
-- **Rule**: On application startup the file is loaded into an in-memory table.
-- **Rule**: File base names are stored (absolute paths are unreliable because files can be imported from any directory).
-
-File Format
-~~~~~~~~~~~
-
-Location: set by the config ``blacklist`` optional item, no default. If not set, black listing is disabled.
+Blacklist file location is set by the config ``blacklist`` optional item, no default. If not set, black listing is disabled.
 
 One entry per line with fields separated by ``|``::
 
@@ -41,8 +30,7 @@ Fields:
 
 Lines beginning with ``#`` are treated as comments and ignored.
 
-Example
-~~~~~~~
+*Example*:
 
 ::
 
@@ -50,3 +38,5 @@ Example
    Book Title.fb2|keep the later version with better format
    broken.fb2|xml parsing failed at line 42
    NoTitle.fb2|No title
+   # Next line has no comment part
+   UndefinedProblem.fb2

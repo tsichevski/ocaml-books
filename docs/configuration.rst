@@ -1,111 +1,108 @@
-========================
-Configuration Management
-========================
+.. _configuration:
+
+=============
+Configuration
+=============
 
 .. contents::
    :depth: 2
    :local:
 
-Purpose
--------
+Bookweald uses a JSON configuration file to store user-specific paths,
+behavior flags, database settings, logging preferences and blacklist file location.
 
-The tool uses a JSON configuration file to store user-specific paths,
-behavior flags, database settings, logging preferences and blacklist location.
-This avoids hard-coding values and makes the tool flexible for different users and machines.
-
-Configuration Type
-------------------
-
-The main configuration is defined by the record ``Config.t`` in ``lib/config.ml``.
-
-.. note::
-   All optional fields default to ``None`` or sensible values when missing in JSON.
-   Unknown fields are ignored (``strict=false``).
-
-Notes
------
-
-The tilda character in file path examples means user home directory and should be replaced by the real value. Bookweald does not expands tildas in file names.
+.. note:: The tilda character in file path examples means user home directory and should be replaced by the real value. Bookweald does not expands tildas in file names.
 
 Top-level fields
-~~~~~~~~~~~~~~~~
+----------------
 
-- ``library_dir`` (string)  
-  Directory containing incoming FB2 files (zips or raw).
+- ``library_dir`` (string)
   
-  .. note:: unzipping zipped files on-the-fly is not yet implemented.
+  Directory containing incoming FB2 files (zips or raw), required.
 
-- ``target_dir`` (string)  
-  Destination directory for organized books (author-based structure).
+- ``target_dir`` (string)
+  
+  Destination directory for organized books (see :ref:`group_cmd`), required.
 
-- ``invalid_dir`` (string)  
-  Directory for files that failed validation or parsing.
+- ``dry_run`` (boolean, optional)
+  
+  If ``true``, simulate all operations without modifying filesystem or database. Default is ``false``.
 
-  .. note:: this directory is currently user in the ``group`` command only. In the future, moving broken files to some other directory feature will be removed, so will be this configuration item.
-
-- ``dry_run`` (boolean)  
-  If ``true``, simulate all operations without modifying filesystem or database.
-
-- ``max_component_len`` (int)  
-  Maximum allowed length of a single filename component.  
+- ``max_component_len`` (int, optional)
+  
+  Maximum allowed length of a single filename component.
   ``0`` means no limit (default).
 
-  This value is used in the ``group`` command to limit the potentially long file names based on book titles and author names.
+  This value is used in the :ref:`group_cmd` to limit the potentially long file names based on book titles and author names.
 
-- ``jobs`` (int)  
-  Number of parallel jobs (domain pool). Set to ``1`` to disable parallelism.
+- ``jobs`` (int, optional)
+  
+  Number of parallel jobs. Set to ``1`` to disable parallelism. Default is using all available CPU threads.
 
-- ``log_file`` (string, optional)  
+- ``log_file`` (string, optional)
+  
   Path to log file. If ``None``, logs go to stdout.
 
-- ``blacklist`` (string, optional)  
+- ``blacklist`` (string, optional)
+  
   Path to the blacklist file for invalid/illegal FB2 files
-  If ``None``, blacklisting is disabled.
+  If ``None`` (default), blacklisting is disabled.
 
-- ``drop_existing_log_file_on_start`` (boolean)  
-  If ``true`` and ``log_file`` is set: truncate the log on startup (otherwise append).
+- ``drop_existing_log_file_on_start`` (boolean, optional)
+  
+  If ``true`` and ``log_file`` is set: truncate the log on startup (otherwise append). Default is ``false``.
 
-- ``log_level`` (string, optional)  
+- ``log_level`` (string, optional)
+  
   Override the default "info" logging level ("quiet", "error", "warning", "info", "debug", "app").
 
-- ``alias_file`` (string, optional)  
-  Path to author alias JSON file.
+- ``alias_file`` (string, optional)
+  
+  Path to author alias JSON file. Default is ``None`` for not using aliasing feature.
 
 .. _db-configuration:
 
-Configure Database
-~~~~~~~~~~~~~~~~~~
+Database Configuration
+----------------------
 
-- ``database`` (object)  
-  PostgreSQL connection settings:
+- ``database`` (JSON object)
+  
+  PostgreSQL connection settings (all optional with reasonable defaults):
 
-    - ``host`` (string)  
-      Hostname or IP address of the PostgreSQL server.  
-      Default: ``localhost``
+  - ``host`` (string, optional)
+      
+    Hostname or IP address of the PostgreSQL server.
+    Default: ``localhost``
 
-    - ``port`` (int)  
-      TCP port the PostgreSQL server listens on.  
-      Default: ``5432``
+  - ``port`` (int, optional)
+    
+    TCP port the PostgreSQL server listens on.
+    Default: ``5432``
 
-    - ``user`` (string)  
-      Username for normal (read/write) operations on the book database.  
-      Default: ``books``
+  - ``user`` (string, optional)
+    
+    Username for normal (read/write) operations on the book database.
+    Default: ``books``
 
-    - ``passwd`` (string)  
-      Password for the normal user.  
-      Default: ``books``
+  - ``passwd`` (string, optional)
+    
+    Password for the normal user.
+    Default: ``books``
 
-    - ``name`` (string)  
-      Name of the database containing the book metadata.  
-      Default: ``books``
+  - ``name`` (string, optional)
+    
+    Name of the database containing the book metadata.
+    Default: ``books``
 
-    - ``admin`` (string)  
-      Username with administrative privileges (used for schema creation and migrations).  
-      Default: ``admin``
+  - ``admin`` (string, optional)
+    
+    Username with administrative privileges (used for schema creation and migrations).
+    Default: ``admin``
 
-    - ``admin_passwd`` (string)  
-      Password for the admin user.  
-      Default: ``admin``
+  - ``admin_passwd`` (string, optional)
+    
+    Password for the admin user.
+    Default: ``admin``
 
 Default Values
 --------------
@@ -139,18 +136,20 @@ Configuration File Locations
 The tool searches for ``config.json`` in this order (first match wins):
 
 1. The value passed with ``--config`` option
-2. ``~/.config/bookweald/config.json`` (XDG-style user config)
+2. ``~/.config/bookweald/config.json``
 
-Default Configuration Creation
-------------------------------
+Default Configuration File Creation
+-----------------------------------
 
-Use the ``init`` subcommand::
+Use the ``init`` command::
 
    bookweald init
 
 Or with a custom path::
 
    bookweald init --config /path/to/config.json
+
+this creates a minimal configuration file.
 
 Example Config File
 -------------------
@@ -175,18 +174,3 @@ Example Config File
        "admin_passwd": "admin"
      }
    }
-
-Notes
------
-
-- JSON is pretty-printed when created by ``init``.
-- The configuration is loaded with ``yojson`` and ``ppx_deriving_yojson``.
-- See ``lib/config.ml`` for the full ``Config.t`` and ``database_config`` types.
-- Blacklist support is fully integrated (see ``docs/blacklist.rst``).
-
-See also
---------
-
-- :doc:``blacklist``
-- :doc:``indexing``
-- Command-line interface (``bookweald init``, etc.)
