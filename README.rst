@@ -13,12 +13,8 @@ It helps you:
 - Handle different character encodings commonly found in older FB2 files
 - Manage author name variations and exclude unwanted books
 
-.. contents::
-   :depth: 2
-   :local:
-
 Key Features
-~~~~~~~~~~~~
+------------
 
 - **Streaming decompression** — works directly with large ZIP archives
 - **Smart grouping** — moves books into author-named subdirectories
@@ -27,13 +23,12 @@ Key Features
 - **Author aliases & blacklisting** — clean up messy author names and hide unwanted titles
 - **Minimal dependencies** — fast and lightweight
 
-Available Commands
-~~~~~~~~~~~~~~~~~~
+Command Line
+------------
 
-- ``init`` — create default configuration file
 - ``extract`` — extract FB2 files from ZIP archive(s)
-- ``group`` — parse FB2 files and move them into author-named subdirectories
 - ``validate`` — fully parse all FB2 files as XML
+- ``group`` — parse FB2 files and move them into author-named subdirectories
 - ``index`` — add files to the index
 
 Project Links
