@@ -20,7 +20,7 @@ Key Features
 - **Smart grouping** — moves books into author-named subdirectories
 - **Validation** — checks FB2 files against the FictionBook 2.1 standard
 - **Indexing** — builds a quick database for searching your library
-- **Author aliases & blacklisting** — clean up messy author names and hide unwanted titles
+- **Author aliases & blacklisting** — clean up messy author names and ignore broken book files
 - **Minimal dependencies** — fast and lightweight
 
 Command Line

@@ -4,21 +4,15 @@ Author Aliases
 
 .. index:: author aliases, canonical authors, aliases, fb2 authors
            
-This document specifies the handling of author name aliases in the bookweald library manager.
-
-The same real author may appear under slightly different name strings in FB2 files. An alias mechanism allows to map each variant to a single canonical author record.
-
-.. contents::
-   :depth: 2
-   :local:
+The same real author may appear under slightly different name strings in FB2 files. 
+An alias mechanism allows mapping every variant to a single canonical author record.
 
 Key Features
 ------------
 
-- **Rule**: Provide an alias table that maps every variant name to one canonical author.
-- **Rule**: Canonical author data is used for grouping books by author and for naming author sub-directories on disk.
-- **Rule**: Books without any author are grouped under a special directory (configurable via ``no_author_dir`` in ``config.json``).
-- **Rule**: The alias mapping is maintained **only** in a human-readable JSON file intended for manual editing by the user. The tool does not currently provide automated alias management and does **not** store aliases in the PostgreSQL database.
+- Provide an alias table that maps every variant name to one canonical author.
+- Canonical author data is used for grouping books by author and for naming author sub-directories on disk.
+- The alias mapping is maintained in a human-readable JSON file intended for manual editing by the user.
 
 Aliases File
 ------------
@@ -31,7 +25,7 @@ The aliases mapping is contained in a JSON file. Its location is defined in the 
        ...
    }
 
-There is no default for alias file location, if the file is not configured, author aliases are no used.
+There is no default for the alias file location. If the file is not configured, author aliases are not used.
 
 The file is a JSON object where each key is a canonical author name and the value is an array of all known alias strings that should map to it.
 
@@ -47,5 +41,5 @@ Example::
      "Петров Сергей Петрович": [
        "Петров С.",
        "Petrov S."
-     ],
+     ]
    }

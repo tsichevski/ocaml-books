@@ -9,43 +9,43 @@ Configuration
    :local:
 
 Bookweald uses a JSON configuration file to store user-specific paths,
-behavior flags, database settings, logging preferences and blacklist file location.
+behavior flags, database settings, logging preferences, and the blacklist file location.
 
-.. note:: The tilda character in file path examples means user home directory and should be replaced by the real value. Bookweald does not expands tildas in file names.
+.. note:: The tilde character in file path examples means the user home directory and should be replaced by the real value. Bookweald does not expand tildes in file names.
 
 Top-level fields
 ----------------
 
 - ``library_dir`` (string)
   
-  Directory containing incoming FB2 files (zips or raw), required.
+  Directory containing incoming FB2 files (zips or raw). This field is required.
 
 - ``target_dir`` (string)
   
-  Destination directory for organized books (see :ref:`group_cmd`), required.
+  Destination directory for organized books (see :ref:`group_cmd`). This field is required.
 
 - ``dry_run`` (boolean, optional)
   
-  If ``true``, simulate all operations without modifying filesystem or database. Default is ``false``.
+  If ``true``, simulate all operations without modifying the filesystem or database. Default is ``false``.
 
 - ``max_component_len`` (int, optional)
   
   Maximum allowed length of a single filename component.
   ``0`` means no limit (default).
 
-  This value is used in the :ref:`group_cmd` to limit the potentially long file names based on book titles and author names.
+  This value is used in the :ref:`group_cmd` to limit potentially long file names based on book titles and author names.
 
 - ``jobs`` (int, optional)
   
-  Number of parallel jobs. Set to ``1`` to disable parallelism. Default is using all available CPU threads.
+  Number of parallel jobs. Set to ``1`` to disable parallelism. Default is to use all available CPU threads.
 
 - ``log_file`` (string, optional)
   
-  Path to log file. If ``None``, logs go to stdout.
+  Path to the log file. If ``None``, logs go to stdout.
 
 - ``blacklist`` (string, optional)
   
-  Path to the blacklist file for invalid/illegal FB2 files
+  Path to the blacklist file for invalid or illegal FB2 files.
   If ``None`` (default), blacklisting is disabled.
 
 - ``drop_existing_log_file_on_start`` (boolean, optional)
@@ -58,7 +58,7 @@ Top-level fields
 
 - ``alias_file`` (string, optional)
   
-  Path to author alias JSON file. Default is ``None`` for not using aliasing feature.
+  Path to the author alias JSON file. Default is ``None`` (aliasing feature disabled).
 
 .. _db-configuration:
 
@@ -135,7 +135,7 @@ Configuration File Locations
 
 The tool searches for ``config.json`` in this order (first match wins):
 
-1. The value passed with ``--config`` option
+1. The value passed with the ``--config`` option
 2. ``~/.config/bookweald/config.json``
 
 Default Configuration File Creation
@@ -149,7 +149,7 @@ Or with a custom path::
 
    bookweald init --config /path/to/config.json
 
-this creates a minimal configuration file.
+This creates a minimal configuration file.
 
 Example Config File
 -------------------
